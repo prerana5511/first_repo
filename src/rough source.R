@@ -1,54 +1,53 @@
-#Setup (I try to load all packages at the top)
+#0.0 Setup
 library(tidyverse) #this is a set of several packages including 'readr'
 library(here)
-
-
-
-
-
-#here package example
-
 here <- here() #create a filepath object named "here" to use later
+library(lubridate) #lubridate needs to be loaded separately
 
 
-# I try to keep object names informative and short
-# we often use "ppt" for precipitation
+#1.0 Load and Clean Data ----
+# adding 4 dashes "----" creates a collapsible code chunk
+# specify packages using "::" in bewteen package name and function
+events <- readr::read_csv(paste0(here, "/data/W9_Throughfall_Stemflow_Precipitation.csv"))
+ppt <- readr::read_csv(paste0(here, "/data/W9_Streamflow_Precipitation.csv"))
 
-ppt <- read_csv(paste0(here, "/data/W9_Throughfall_Stemflow_Precipitation.csv"))
-ppt1 <- read_csv(paste0(here, "/data/W9_Streamflow_Precipitation.csv"))
-
-
-
-#you can specify the package that the function belongs to (see below)
-#this is a good idea to reminder yourself when you're first learning
-
-ppt <- readr::read_csv(paste0(here, "/data/W9_Throughfall_Stemflow_Precipitation.csv"))
-ppt1 <- readr::read_csv(paste0(here, "/data/W9_Streamflow_Precipitation.csv"))
-
-
-
+#use dplyr::glimpse to browse data
+glimpse(events)
 glimpse(ppt)
-glimpse(ppt1)
-
-is.interval(ppt$datetime_interval_EST) #this column is not classed as an 'interval'
-# It must be classed as an interval before lubridate can use it to filter.
-
 
 #identifying class
-sapply(ppt, class)
+sapply(events, class)
+#Check the format of the interval column
+#"base" refers to the base R packages that come with R
+base::class(events$datetime_interval_EST) #loaded as a character string
+lubridate::is.interval(events$datetime_interval_EST) 
+#this column is not classed as an 'interval'
+#It must be classed as an interval before lubridate can use it to filter.
 
 #converting to numeric class
-ppt$datetime_interval_EST <- as.numeric(ppt$datetime_interval_EST)
+# events$datetime_interval_EST <- as.numeric(events$datetime_interval_EST)
+# class(events$datetime_interval_EST)
+# converting a character string to a number creates "NAs"
 
+# Define the interval using start and end times
+events2 <- events %>%
+  mutate(.after = datetime_end_GMT, #indicates where the new column is placed
+         datetime_interval_EST2 = lubridate::interval(start = datetime_start_GMT,
+                                                      end = datetime_end_GMT,
+                                                      tz = "EST"))
+class(events2$datetime_interval_EST2)
+tz(events2$datetime_interval_EST2) #timezone of interval gives an error
+tz(events2$datetime_start_GMT) #timezone of start is UTC/GMT
+view(events2) #check the new intervals match the character intervals
 
-#converting numeric to interval by the instruction given in 'Help'
-ppt <- ppt %>%
-  mutate(datetime_interval_EST <- as.interval(3600, ymd("2018-05-31")))
+#To ensure the interval is in EST, we can pull out the start
+start <- int_start(events2$datetime_interval_EST2[1])
+class(start)
+tz(start)
 
-#Gives error message : could not find function "as.interval"
-
-
-
+#Now you should have an set of intervals to use for filtering
+intervals <- unique(events2$datetime_interval_EST2)
+intervals
 
 OlsonNames() #valid timezone names 
 # day <- today(tz= "Asia/Kolkata") 
