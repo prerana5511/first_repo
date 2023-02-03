@@ -1,4 +1,4 @@
-#0.0 Setup
+#0.0 Setup ----
 library(tidyverse) #this is a set of several packages including 'readr'
 library(here)
 here <- here() #create a filepath object named "here" to use later
@@ -10,126 +10,111 @@ library(lubridate) #lubridate needs to be loaded separately
 #1.0 Load and Clean Data ----
 # adding 4 dashes "----" creates a collapsible code chunk
 # specify packages using "::" in bewteen package name and function
-
 events <- readr::read_csv(paste0(here, "/data/W9_Throughfall_Stemflow_Precipitation.csv"))
 ppt <- readr::read_csv(paste0(here, "/data/W9_Streamflow_Precipitation.csv"))
 
-
-
 #use dplyr::glimpse to browse data
-
 glimpse(events)
 glimpse(ppt)
 
-
-
-
 #identifying class
-
 sapply(events, class)
 sapply(ppt, class)
 
-
-
 #Check the format of the interval column
 #"base" refers to the base R packages that come with R
-
 base::class(events$datetime_interval_EST) #loaded as a character string
 lubridate::is.interval(events$datetime_interval_EST) 
-
 #this column is not classed as an 'interval'
 #It must be classed as an interval before lubridate can use it to filter.
 
 
-
-
-#converting to numeric class
-# events$datetime_interval_EST <- as.numeric(events$datetime_interval_EST)
-# class(events$datetime_interval_EST)
-# converting a character string to a number creates "NAs"
-
-
-
-
-
-# Define the interval using start and end times
-
+##1.1 Define the interval using start and end times----
 events2 <- events %>%
   mutate(.after = datetime_end_GMT, #indicates where the new column is placed
          datetime_interval_EST2 = lubridate::interval(start = datetime_start_GMT,
                                                       end = datetime_end_GMT,
                                                       tz = "EST"))
 
-
-
-
 class(events2$datetime_interval_EST2)
 tz(events2$datetime_interval_EST2) #timezone of interval gives an error
 tz(events2$datetime_start_GMT) #timezone of start is UTC/GMT
 view(events2) #check the new intervals match the character intervals
 
-
-
-
-
-#To ensure the interval is in EST, we can pull out the start
-
+#To check the interval is in EST, we can pull out the start
 start <- int_start(events2$datetime_interval_EST2[1])
 class(start)
 tz(start)
 
-
-
-
 #Now you should have an set of intervals to use for filtering
+intervals <- events2 %>% 
+  distinct(datetime_interval_EST2, .keep_all = TRUE) %>% 
+  select(Event_Number, datetime_interval_EST2)
 
-intervals <- unique(events2$datetime_interval_EST2)
-intervals
 
+##1.2 Assign event numbers/filter ppt time series based on event intervals ----
+ppt2 <- ppt %>% 
+  mutate(.after = datetime_EST, #indicates where the new column is placed
+         datetime_EST2 = as.POSIXct(datetime_EST, format = "%m/%d/%Y %H:%M")) %>% 
+  select(-W9_Streamflow_mm_hr)
 
+#create an empty dataframe with same headers
+ppt_events <- slice(ppt2, 0) 
+
+i=1
+rm(i)
+
+for (i in 1:length(intervals$Event_Number)) {
+  interval <- ppt2 %>%
+    filter(datetime_EST2 %within% intervals$datetime_interval_EST2[i]) %>% 
+    mutate(event_n = intervals$Event_Number[i])
   
+  ppt_events <- bind_rows(ppt_events, interval)
+}
+#Check and correct timezone
+tz(ppt_events$datetime_EST2)
+attr(ppt_events$datetime_EST2, "tzone") <- "EST"
+tz(ppt_events$datetime_EST2)
+#Now the time series record is filtered with event numbers
   
-sapply(events2, class)
+
+#2.0 ---- Create summary statistics for each event
+#use tidy R piping and dplyr::group_by and summarize functions
+
 
 
 
 
 #selecting precipitation that are available and greater than zero
-vec <- c(0, NA)
-vec
-ppt <- ppt[! ppt$W9_Precipitation_mm %in% vec,]
-View(ppt)
-
-
-#char to datetime class
-ppt$datetime_EST <- as.POSIXct(ppt$datetime_EST, format = "%m/%d/%Y %H:%M", tz = "EST" )
-ppt
-
-
-
-#adding duration in hours
-ppt <- ppt %>%
-  mutate(Time <- hour(ppt2$datetime_EST) + minute(ppt2$datetime_EST)/60 + second(ppt2$datetime_EST)/3600) 
+# vec <- c(0, NA)
+# vec
+# ppt <- ppt[! ppt$W9_Precipitation_mm %in% vec,]
+# View(ppt)
+# 
+# 
+# #adding duration in hours
+# ppt3 <- ppt %>%
+#   mutate(Time <- hour(ppt2$datetime_EST) + minute(ppt2$datetime_EST)/60 + second(ppt2$datetime_EST)/3600) 
   
 
 
 
 #filtering intervals
 
-ppt_intervals <- slice(ppt, 0)
-
- i=1
- rm(i)
-
- for (i in 1:length(intervals)) {
- final <- ppt %>%
-     filter(datetime_EST %within% intervals[i]) %>%
-     mutate(Event_number = events2$Event_Number[i])
-     
-  ppt_intervals <- bind_rows(ppt_intervals, final)
- }
- 
- tz(ppt_intervals$datetime_EST)
+# ppt_intervals <- slice(ppt, 0)
+# 
+#  i=1
+#  rm(i)
+# 
+#  for (i in 1:length(intervals)) {
+#  final <- ppt %>%
+#      filter(datetime_EST %within% intervals[i]) %>%
+#      mutate(Event_number = events2$Event_Number[i])
+#      
+#   ppt_intervals <- bind_rows(ppt_intervals, final)
+#  }
+#  
+#  tz(ppt_intervals$datetime_EST)
  
  
  
