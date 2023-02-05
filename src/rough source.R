@@ -81,6 +81,25 @@ tz(ppt_events$datetime_EST2)
 #2.0 ---- Create summary statistics for each event
 #use tidy R piping and dplyr::group_by and summarize functions
 
+options(dplyr.summarise.inform = FALSE)
+
+
+ppt_events <- ppt_events %>%
+  mutate(Time_in_hr = hour(datetime_EST2) + minute(datetime_EST2)/60 + second(datetime_EST2)/3600) %>%
+  mutate(Rate = W9_Precipitation_mm/Time_in_hr)  %>%
+  na.omit() %>%
+  group_by(Time_in_hr) %>%
+  summarise(Total_ppt = sum(W9_Precipitation_mm),
+            min_ppt = min(W9_Precipitation_mm), max_ppt = max(W9_Precipitation_mm),
+            min_rate = min(Rate), max_rate = max(Rate), peak_time = datetime_EST2[max_rate])   
+ 
+  
+
+
+
+
+
+
 
 
 
