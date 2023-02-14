@@ -49,14 +49,17 @@ tz(start)
 #Now you should have an set of intervals to use for filtering
 intervals <- events2 %>% 
   distinct(datetime_interval_EST2, .keep_all = TRUE) %>% 
-  select(Event_Number, datetime_interval_EST2)
+  select(Event_Number, datetime_interval_EST2) %>% 
+  mutate(event_dur_sec = dseconds(datetime_interval_EST2))
 
 
 ##1.2 Assign event numbers/filter ppt time series based on event intervals ----
 ppt2 <- ppt %>% 
   mutate(.after = datetime_EST, #indicates where the new column is placed
          datetime_EST2 = as.POSIXct(datetime_EST, format = "%m/%d/%Y %H:%M")) %>% 
-  select(-W9_Streamflow_mm_hr)
+  filter(minute(datetime_EST2) == 0) %>% #remove subhourly timestamps
+  select(-W9_Streamflow_mm_hr) %>% 
+  arrange(datetime_EST2) #Order from earliest to latest timestamp
 
 #create an empty dataframe with same headers
 ppt_events <- slice(ppt2, 0) 
@@ -67,37 +70,44 @@ rm(i)
 for (i in 1:length(intervals$Event_Number)) {
   interval <- ppt2 %>%
     filter(datetime_EST2 %within% intervals$datetime_interval_EST2[i]) %>% 
-    mutate(event_n = intervals$Event_Number[i])
+    mutate(Event_Number = intervals$Event_Number[i])
   
   ppt_events <- bind_rows(ppt_events, interval)
 }
+
 #Check and correct timezone
 tz(ppt_events$datetime_EST2)
 attr(ppt_events$datetime_EST2, "tzone") <- "EST"
 tz(ppt_events$datetime_EST2)
-#Now the time series record is filtered with event numbers
+#Now the hourly time series record is filtered with event numbers
   
 
 #2.0 ---- Create summary statistics for each event
 #use tidy R piping and dplyr::group_by and summarize functions
 
-options(dplyr.summarise.inform = FALSE)
+options(dplyr.summarise.inform = TRUE) #I like to see the feedback
+
+#I try to avoid overwriting objects with the same name
+#It helps with troubleshooting and you can always remove old objects
+events_summary <- ppt_events %>% 
+  group_by(Event_Number) %>%
+  dplyr::summarise(P_event_mm = sum(W9_Precipitation_mm),
+                 P_max_event_mm_hr = max(W9_Precipitation_mm, na.rm = TRUE),
+                 P_mean_event_mm_hr = mean(W9_Precipitation_mm, na.rm = TRUE))%>% 
+  left_join(intervals, ., by = "Event_Number")
+
+#try 4.d and 4.e
+
+#save results
+#use write_csv and saveRDS and 'here' to save the events_summary and ppt_events data
 
 
-ppt_events <- ppt_events %>%
-  mutate(Time_in_hr = hour(datetime_EST2) + minute(datetime_EST2)/60 + second(datetime_EST2)/3600) %>%
-  mutate(Rate = W9_Precipitation_mm/Time_in_hr)  %>%
-  na.omit() %>%
-  group_by(Time_in_hr) %>%
-  summarise(Total_ppt = sum(W9_Precipitation_mm),
-            min_ppt = min(W9_Precipitation_mm), max_ppt = max(W9_Precipitation_mm),
-            min_rate = min(Rate), max_rate = max(Rate), peak_time = datetime_EST2[max_rate])   
- 
-  
 
 
-
-
+#clean up object list
+# to_remove <- ls() %>% as_tibble()
+# 
+# rm(ls())
 
 
 
@@ -191,5 +201,5 @@ group_by(W9_Precipitation_mm) %>%
 
 
 ppt2<- ppt%>% 
-  select(datetime_EST,W9_Precipitation_mm) %>%
+  select(datetime_EST,W9_Precipitation_mm)
   
