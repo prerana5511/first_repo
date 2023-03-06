@@ -1,0 +1,237 @@
+
+#0.0 Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+here <- here()
+here
+library(tidyverse)
+library(fs)
+
+
+
+#Load import function
+source(paste0(here, "/src/hobo_import.R"))
+#Load a table of constants to use in calculations below
+const <- readRDS(paste0(here,"/data/TF_SF_const.Rds"))
+```
+
+
+#1.0 Import hobo records, convert to yields
+```{r}
+
+#SF-A-----
+site <- "SF-A"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["SF_L_mm"]], #0.05 L/mm depth in bucket
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["SF_A_CA_mm2"]])  #water yield normalized to tree canopy area 
+
+#plot
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+
+#SF-B-----
+site <- "SF-B"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["SF_L_mm"]], #0.05 L/mm depth in bucket
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["SF_B_CA_mm2"]])  #water yield normalized to tree canopy area 
+
+#plot
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+```
+
+
+
+##1.1 Prepare imported hobo for import to Matlab
+```{r}
+#SF-A -----
+#Load hobo record
+site <- "SF-A"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, yield_mm_hobo) %>% 
+  drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+
+#SF-B -----
+#Load hobo record
+site <- "SF-B"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, yield_mm_hobo) %>% 
+  drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+```
+
+
+
+#Kevin will run Matlab output
+
+#STOP CODE FOR LATER:
+## Correct matlab output
+```{r}
+# Note the datenum matlab function does not account for time zone or DST.
+# The date-time character input to matlab are in America/Cancun so the output numbers are also America/Cancun
+
+# load cumulative precip data corrected from matlab APCP output
+hobo_ml_corr <- read_csv(paste0(here,
+                                   "/scan-tree/data/hobo/forMatlab/hoboPPTcorr.csv"),
+                              skip_empty_rows = FALSE,
+                              col_names = FALSE)
+#ensure file is correct
+plot(hobo_ml_corr$X2, type = "l")
+
+#Convert matlab values as America/Cancun to POSIXct, but R thinks it's in UTC, so format as character first
+# Then convert datetime string to Posixct, specifying the America/Cancun timezone
+hobo_ml_corr$dt <- as.character(as.POSIXct((hobo_ml_corr$X1 - 719529)*86400,
+                                                origin = "1970-01-01",
+                                                tz = "UTC"))
+hobo_ml_corr$dt <- as.POSIXct(hobo_ml_corr$dt, tz = "America/Cancun")
+#cHECK to confirm timezone is America/Cancun
+attr(hobo_ml_corr$dt, "tzone")
+
+# Round to the nearest minute because matlab conversion is off occasionally by a second
+hobo_ml_corr <- hobo_ml_corr %>% 
+  mutate(dt = round_date(dt, unit = "minute"),
+         hobo_cum_mm = X2) %>% 
+  select(dt, hobo_cum_mm) #matlab corrected output
+
+plot(hobo_ml_corr$hobo_cum_mm ~ hobo_ml_corr$dt, type = "l")
+
+#calculate the time intervals/duration, and cumulative duration 
+hobo_ml_corr <- hobo_ml_corr %>% 
+  arrange(dt) %>% 
+  mutate(hobo_mm_5min = lead(hobo_cum_mm, n = 1, order_by = dt) - hobo_cum_mm,
+         hobo_dur_hr = "")
+
+hobo_ml_corr$hobo_dur_hr[1] <- 0
+hobo_ml_corr$hobo_dur_hr[-1] <- 5/60 #5min interval converted to hours
+hobo_ml_corr$hobo_cum_hr = cumsum(hobo_ml_corr$hobo_dur_hr)
+
+#sum the 5min data to hourly.  floor_date ensures sums fall within the hour and do not indicate precipitation that fell in the preceeding hour.
+hobo_mm_hr <-  hobo_ml_corr %>% 
+  dplyr::mutate(dt_hr = floor_date(dt, unit = "hour")) %>% 
+  dplyr::group_by(dt_hr) %>% 
+  dplyr::summarise(hobo_mm_hr = sum(hobo_mm_5min, na.rm = TRUE)) %>%
+  dplyr::ungroup() %>% 
+  dplyr::mutate(dt = dt_hr)
+
+#join
+scan_tree_ppt2 <- full_join(hobo_ml_corr, scan_tree_ppt, by = "dt") %>% 
+  full_join(hobo_mm_hr, ., by = "dt") %>% 
+  distinct(dt, .keep_all = TRUE) %>% 
+  arrange(dt) %>% 
+  mutate(diff = lead(dt) - dt,
+         ID = paste(id2, dt_chr, sep = "_")) %>% 
+  select(ID, diff, everything())
+ 
+glimpse(scan_tree_ppt2)
+sum(duplicated(scan_tree_ppt2$dt))
+
+#Plot hobo vs. W9basin record
+ggplot(scan_tree_ppt2) +
+  geom_point(aes(x=w9ppt_mm_hr, y=hobo_mm_hr)) +
+  geom_abline(color = "red") +
+  lims(x=c(0,5), y=c(0,5))
+
+xts <-  xts(scan_tree_ppt2 %>%
+              select(dt, hobo_mm_hr, hobo_mm_5min, yield_mm_hobo,
+                     w9ppt_mm_hr, `300.00`) %>% 
+              mutate(`300.00` = `300.00`/10),
+            order.by = scan_tree_ppt2$dt,
+            tzone = "America/Cancun")
+# browse periods to check outliers
+dygraph(xts) %>% 
+  # dySeries("300.00", axis = "y2") %>% 
+  dyOptions(connectSeparatedPoints = FALSE,
+            drawPoints = TRUE,
+            stepPlot = TRUE,
+            pointSize = 2,
+            fillGraph = TRUE,
+            useDataTimezone = TRUE) %>%
+  dyRangeSelector()
+
+
+saveRDS(scan_tree_ppt2, paste0(here, "/scan-tree/output/scan_tree_ppt2.Rds"))
+write_csv(scan_tree_ppt2, paste0(here, "/scan-tree/output/scan_tree_ppt2.csv"))
+
+rm(hobo_ml_corr, hobo_mm_hr, scan_tree_ppt, scan_tree_ppt2)
+```
+
+
+
+

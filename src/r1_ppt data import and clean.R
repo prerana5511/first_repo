@@ -50,8 +50,7 @@ tz(start)
 intervals <- events2 %>% 
   distinct(datetime_interval_EST2, .keep_all = TRUE) %>% 
   select(Event_Number, datetime_interval_EST2) %>% 
-  mutate(event_dur_sec = dseconds(datetime_interval_EST2),
-          event_dur_s = as.numeric(intervals$event_dur_sec))
+  mutate(event_dur_sec = dseconds(datetime_interval_EST2))
 
 
 ##1.2 Assign event numbers/filter ppt time series based on event intervals ----
@@ -101,23 +100,22 @@ events_summary <- ppt_events %>%
 
 
 ppt_dt <-  ppt_events %>%
-  
-  
-  left_join(events_summary, .,  by = "Event_Number") %>% 
+  left_join(events_summary, .,  by = "Event_Number") %>%
   group_by(Event_Number) %>% 
-  filter(W9_Precipitation_mm != 0 )%>%
-  mutate(dt_P_mm_hr_event_max = case_when(P_max_event_mm_hr == W9_Precipitation_mm ~ datetime_EST2),
-         Time_taken_max_P_event = case_when(P_max_event_mm_hr == W9_Precipitation_mm ~
-                                         event_dur_sec)) %>% 
-  distinct(Event_Number, dt_P_mm_hr_event_max, Time_taken_max_P_event) %>% 
+  # filter(W9_Precipitation_mm != 0 )%>%
+  mutate(dt_P_mm_hr_event_max = case_when(P_max_event_mm_hr == W9_Precipitation_mm ~ 
+                                            datetime_EST2),
+         fract_max_P_event = case_when(P_max_event_mm_hr == W9_Precipitation_mm ~ 
+                                         W9_Precipitation_mm/P_event_mm),
+         seconds_to_max_P = dseconds(interval(start = int_start(datetime_interval_EST2),
+                                              end = dt_P_mm_hr_event_max))) %>%
+  distinct(Event_Number, dt_P_mm_hr_event_max, fract_max_P_event,
+           seconds_to_max_P) %>% 
   drop_na() %>% 
   dplyr::ungroup() %>% 
   left_join(events_summary, ., by = "Event_Number")
 
 
-
-
-#try 4.d and 4.e
 
 #save results
 #use write_csv and saveRDS and 'here' to save the events_summary and ppt_events data
