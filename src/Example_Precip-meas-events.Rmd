@@ -1,0 +1,151 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+#0.0 setup
+```{r}
+library(here)
+here <- here::here()
+library(readr)
+library(lubridate)
+library(dplyr)
+library(xts)
+library(dygraphs)
+library(ggplot2)
+library(tidyr)
+
+```
+
+Code to sum the total calculated rain for event periods to compare with measured values
+#1.0 load data
+```{r}
+#Created this csv file in excel from browsing the sample log to determine periods of time when precip was collected
+W9_precip_events <- read_csv(paste0(here,"/Precip-TF-SF/data/W9_tree_events.csv"))
+#define time intervals based on start and end variables
+W9_precip_events <- W9_precip_events %>% 
+  mutate(dt_start = as.POSIXct(dt_start, format = "%m/%d/%Y %H:%M", tz="America/Cancun"),
+         dt_end = as.POSIXct(dt_end, format = "%m/%d/%Y %H:%M", tz="America/Cancun"),
+         dt_interval = interval(dt_start, dt_end, tz="America/Cancun"),
+         event_dur_sec = dseconds(dt_interval),
+         label_start = "start",
+         label_end = "end") 
+tz(W9_precip_events$dt_end)
+
+#load W9 basin precip record for CY2017-2018
+W9_ppt_fin <- readRDS(paste0(here, "/Precip-TF-SF/results/W9_ppt_fin.Rds"))
+```
+
+#2.0 generate ppt data for event intervals
+```{r}
+#Create an empty table
+Precip_intervals <- slice(W9_ppt_fin, 0)
+#remove any previously saved versions of the 'i' object
+rm(i)
+#for loop to generate a table of precipitation data for only the events corresponding to tree collectors
+for (i in 1:length(W9_precip_events$dt_interval)) {
+  
+  interval <- W9_ppt_fin %>% 
+    filter(dt %within% W9_precip_events$dt_interval[i]) %>% 
+    mutate(Event_n = W9_precip_events$Event_n[i])
+  
+  Precip_intervals <- bind_rows(Precip_intervals, interval)
+  
+}
+# attr(Precip_intervals$dt,"tzone") <- "America/Cancun"
+tz(Precip_intervals$dt)
+
+
+#Plot the calculated precip filtered only during event intervals
+xts <- xts(x = Precip_intervals,
+                            order.by = Precip_intervals$dt, tz = "America/Cancun")
+
+#bar chart of combined W9 and R1A rain gauges for entire period
+dygraph(xts$W9basin_mm_hr_corr, main = "W9 mm Precip/hr", ylab = "mm/hr") %>% 
+  dyAxis("y", valueRange = c(-2, 29)) %>% 
+  dyRangeSelector() %>%
+  dyBarChart() %>% 
+  dyOptions(useDataTimezone = TRUE)
+
+```
+
+
+#3.0 Calculate event statistics
+#NOTE: W9basin_mm_hr_corr is not a rate it is a load.  The time associated with the load in the object name is unnecessary.  This is because precip is calculated from an accumulation curve, not from instantaneous rates like discharge. The time step at which the accumulation was computed is indicated in the object name. But this information is also present in the timestep of the datetimes of the data.  There is no need to multiply the data by the timestep to get a load.  It is already a load.
+```{r}
+#calculate the sum and max intensity of W9 basin hourly precip loads for the intervals
+Precip_intervals_sum <- Precip_intervals %>% 
+  group_by(Event_n) %>% 
+  # mutate(dt_max_P_mm_hr_event = first(dt, order_by = W9basin_mm_hr_corr))
+  dplyr::summarise(P_mm_event_calc = sum(W9basin_mm_hr_corr),
+                   P_mm_hr_event_max = max(W9basin_mm_hr_corr, na.rm = TRUE),
+                   P_mm_hr_event_mean = mean(W9basin_mm_hr_corr, na.rm = TRUE)) %>% 
+  left_join(W9_precip_events, ., by = "Event_n")
+
+#get time of max precip per hour and calculate the fraction of max P/hr for the event
+Precip_intervals_sum2 <- Precip_intervals_sum %>% 
+  left_join(Precip_intervals, .,  by = "Event_n") %>% 
+  group_by(Event_n) %>% 
+  mutate(dt_P_mm_hr_event_max = case_when(P_mm_hr_event_max == W9basin_mm_hr_corr ~ dt),
+         fract_max_P_event = case_when(P_mm_hr_event_max == W9basin_mm_hr_corr ~
+                                         W9basin_mm_hr_corr/P_mm_event_calc)) %>% 
+    distinct(Event_n, dt_P_mm_hr_event_max, fract_max_P_event) %>% 
+    drop_na() %>% 
+  dplyr::ungroup() %>% 
+  left_join(Precip_intervals_sum, ., by = "Event_n")
+
+#Join summary table back to all event data in prep for next calculation
+Precip_intervals_sum3 <- Precip_intervals_sum2 %>% 
+  left_join(Precip_intervals, .,  by = "Event_n")
+
+#create empty table of event intensity calculations
+event_stats <- tibble(Event_n = 0, P_dur_hr_99pc = 0, P_mm_hr_99pc_mean = 0) %>% 
+  slice(0)
+
+#remove any previously saved versions of the 'i' object
+rm(i)
+##average the precip intensities for hours when it was actually raining
+#normal total precip / event duration will greatly reduce event intensity
+# because start and end times were based on emptying and cleaning of collectors not precip.
+# IOW: of the times when it was raining, how hard was it raining?
+# i = 1
+for (i in 1:length(Precip_intervals_sum2$Event_n)) {
+  event_stat <-  Precip_intervals_sum3 %>% 
+    filter(Event_n == i) %>% 
+    mutate(fract_event_P = W9basin_mm_hr_corr/P_mm_event_calc) %>% 
+    arrange(desc(fract_event_P)) %>%  
+    mutate(cumsum = cumsum(fract_event_P)) %>% 
+    filter(cumsum < 0.99) %>%  #exclude intensities that contribute less than 1% of event
+    mutate(P_dur_hr_99pc = dim(.)[1],
+           P_mm_hr_99pc_mean = mean(W9basin_mm_hr_corr)) %>% 
+    distinct(Event_n, P_dur_hr_99pc, P_mm_hr_99pc_mean)
+  
+  event_stats <- bind_rows(event_stats, event_stat)
+}
+
+#join new event stats back to all event data
+Precip_intervals_fin <- Precip_intervals_sum2 %>% 
+  left_join(event_stats, by = "Event_n") %>% 
+  mutate(I_P_mm_hr_bulk = P_mm_event_calc/as.numeric(event_dur_sec)*3600)
+
+
+ggplot(Precip_intervals_fin) +
+  geom_point(mapping=
+               # aes(x=I_P_mm_hr_bulk, y= mean_P_mm_hr_99pc))+
+               # aes(x=P_mm_event_calc, y= max_P_mm_hr_event))+
+               aes(x= P_mm_hr_event_mean, y= P_mm_hr_99pc_mean),
+             size = 4) +
+  geom_abline(slope=1) +
+  labs(title = "Average P intensity when it was raining vs. \n average P intensity for the entire collection period") +
+  theme_bw()
+
+
+
+#save for import to treeDOM script and analysis
+saveRDS(Precip_intervals_fin,
+        paste0(here, "/Precip-TF-SF/results/W9basin_measured_events.Rds"))
+
+
+```
+
