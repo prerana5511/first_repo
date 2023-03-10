@@ -3,7 +3,7 @@ library(tidyverse) #this is a set of several packages including 'readr'
 library(here)
 here <- here() #create a filepath object named "here" to use later
 library(lubridate) #lubridate needs to be loaded separately
-
+library(fs)
 
 
 
@@ -119,9 +119,19 @@ ppt_dt <-  ppt_events %>%
 
 #save results
 #use write_csv and saveRDS and 'here' to save the events_summary and ppt_events data
+#write_csv(x, path, na = "NA", append = FALSE,
+#         col_names = !append)
 
 
+file_create(paste0(here, "/output/W9_Ppt_eventsummary_file.Rds"))
 
+saveRDS(events_summary,
+        paste0(here,  "/output/W9_Ppt_eventsummary_file.Rds"))
+
+write_csv(x = events_summary, here,"/output/W9_Ppt_eventsummary_file.csv")
+
+
+rm(events,events_summary,events2,interval,intervals,ppt,ppt_dt,ppt_events,ppt2)
 
 #clean up object list
 # to_remove <- ls() %>% as_tibble()
