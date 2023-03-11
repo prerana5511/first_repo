@@ -72,6 +72,121 @@ write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
                        site, "/", site, "_imported.csv"))
 
 rm(hobo, hobo_2, site, paths)
+
+
+
+
+#SF-C-----
+site <- "SF-C"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["SF_L_mm"]], #0.05 L/mm depth in bucket
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["SF_C_CA_mm2"]])  #water yield normalized to tree canopy area 
+
+#plot
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+
+
+
+
+#SF-D-----
+site <- "SF-D"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["SF_L_mm"]], #0.05 L/mm depth in bucket
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["SF_D_CA_mm2"]])  #water yield normalized to tree canopy area 
+
+#plot
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+
+
+
+#TF-B-----
+site <- "TF-B"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["TF_L_mm"]], #0.09 L/mm depth in Trash bin
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["TFA_Area_mm2"]])  #water yield normalized to tree canopy area 
+
+#plot
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+
+
+
+#TF-D-----
+site <- "TF-D"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["TF_L_mm"]], #0.09 L/mm depth in Trash bin
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["TFB_D_Area_mm2"]])  #water yield normalized to tree canopy area 
+
+#plot
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+
 ```
 
 
@@ -135,6 +250,129 @@ saveRDS(hobo_ml,
         "_ml.csv"))
 
 rm(site, hobo, hobo_ml)
+
+
+#SF-C -----
+#Load hobo record
+site <- "SF-C"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, yield_mm_hobo) %>% 
+  drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+
+
+#SF-D -----
+#Load hobo record
+site <- "SF-D"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, yield_mm_hobo) %>% 
+  drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+
+
+#TF-B -----
+#Load hobo record
+site <- "TF-B"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, yield_mm_hobo) %>% 
+  drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+
+
+
+#TF-D -----
+#Load hobo record
+site <- "TF-D"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, yield_mm_hobo) %>% 
+  drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+
+
 ```
 
 
