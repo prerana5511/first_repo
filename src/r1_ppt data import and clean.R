@@ -123,18 +123,15 @@ ppt_dt <-  ppt_events %>%
 #         col_names = !append)
 
 
-
+##1.3 Save ----
 saveRDS(events_summary,
         paste0(here,  "/output/W9_Ppt_eventsummary_file.Rds"))
-
-write_csv(x = events_summary, paste0 (here,"/output/W9_Ppt_eventsummary_file.csv"))
-
+write_csv(x = events_summary,
+          paste0(here,"/output/W9_Ppt_eventsummary_file.csv"))
 
 
 saveRDS(ppt_events,
         paste0(here,  "/output/W9_Ppt_pptevents_file.Rds"))
-
-write_csv(x = events_summary, paste0 (here,"/output/W9_Ppt_pptevents_file.csv"))
 
 
 
@@ -142,6 +139,9 @@ write_csv(x = events_summary, paste0 (here,"/output/W9_Ppt_pptevents_file.csv"))
 
 rm(events,events_summary,events2,interval,intervals,ppt,ppt_dt,ppt_events,ppt2)
 
+
+
+##END ----
 #clean up object list
 # to_remove <- ls() %>% as_tibble()
 # 

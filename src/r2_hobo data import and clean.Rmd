@@ -1,3 +1,8 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
 
 #0.0 Setup
 ```{r setup, include=FALSE}
@@ -6,7 +11,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(here)
 here <- here()
 here
-library(tidyverse)
+# library(tidyverse)
+library(dplyr)
+library(readr)
+library(tidyr)
 library(fs)
 
 
@@ -144,7 +152,7 @@ hobo <- map_dfr(paths, hobo_import)
 hobo_2 <- hobo %>% 
   mutate(vol_L = depth_m*1000 * const$val[["TF_L_mm"]], #0.09 L/mm depth in Trash bin
          vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
-         yield_mm_hobo = vol_mm3/const$val[["TFA_Area_mm2"]])  #water yield normalized to tree canopy area 
+         yield_mm_hobo = vol_mm3/const$val[["TFB_D_Area_mm2"]])  #water yield normalized to tree canopy area 
 
 #plot
 plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
@@ -206,17 +214,19 @@ hobo_ml <- hobo %>%
          hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
                                    TRUE ~ yield_mm_hobo)) %>% 
   select(datetime, yield_mm_hobo) %>% 
+  # rename("datetime" = "datetime") %>% 
   drop_na()
 
 sum(duplicated(hobo_ml$datetime))
 
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
 dir_create(paste0(here, "/data/hobo/forMatlab/", site))
 
 #Save file for input to matlab correction script
 saveRDS(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.Rds"))
-saveRDS(hobo_ml,
+readr::write_excel_csv(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.csv"))
 
@@ -239,13 +249,14 @@ hobo_ml <- hobo %>%
 
 sum(duplicated(hobo_ml$datetime))
 
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
 dir_create(paste0(here, "/data/hobo/forMatlab/", site))
 
 #Save file for input to matlab correction script
 saveRDS(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.Rds"))
-saveRDS(hobo_ml,
+write_csv(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.csv"))
 
@@ -269,13 +280,14 @@ hobo_ml <- hobo %>%
 
 sum(duplicated(hobo_ml$datetime))
 
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
 dir_create(paste0(here, "/data/hobo/forMatlab/", site))
 
 #Save file for input to matlab correction script
 saveRDS(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.Rds"))
-saveRDS(hobo_ml,
+write_csv(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.csv"))
 
@@ -299,13 +311,14 @@ hobo_ml <- hobo %>%
 
 sum(duplicated(hobo_ml$datetime))
 
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
 dir_create(paste0(here, "/data/hobo/forMatlab/", site))
 
 #Save file for input to matlab correction script
 saveRDS(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.Rds"))
-saveRDS(hobo_ml,
+write_csv(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.csv"))
 
@@ -329,13 +342,14 @@ hobo_ml <- hobo %>%
 
 sum(duplicated(hobo_ml$datetime))
 
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
 dir_create(paste0(here, "/data/hobo/forMatlab/", site))
 
 #Save file for input to matlab correction script
 saveRDS(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.Rds"))
-saveRDS(hobo_ml,
+write_csv(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.csv"))
 
@@ -360,13 +374,14 @@ hobo_ml <- hobo %>%
 
 sum(duplicated(hobo_ml$datetime))
 
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
 dir_create(paste0(here, "/data/hobo/forMatlab/", site))
 
 #Save file for input to matlab correction script
 saveRDS(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.Rds"))
-saveRDS(hobo_ml,
+write_csv(hobo_ml,
         paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
         "_ml.csv"))
 
