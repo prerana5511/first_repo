@@ -1,0 +1,8 @@
+Table 2. Instantaneous Precipitation Occurrence Frequency and Cumulative Annual Depth for Output From APCP Cycle 1 and Cycle 2 at Daily, Hourly, and 15 min Time Steps
+
+Cycle 1	Cycle 2
+	Positive Event	Negative Event	Positive Event
+	Number	Sum (mm)	Number	Sum (mm)	Number	Sum (mm)
+Daily	188	491	130	-28	95	463
+Hourly	3895	721	3098	-246	885	475
+15 min	13912	1328	12030	-853	2081	475

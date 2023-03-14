@@ -1,0 +1,7 @@
+Table 1. User-Defined Parameters Used in APCP Program and Values Used to Process Example Data
+
+Parameter	Description	Value Range for Precipitation (mm)	Values for TDR (m3 m-3)
+BucketDecanting	Bucket decanting limit	1.9-7.5	1.0
+BucketRecharge	Bucket recharge limit	14.9-50.0	1.0
+Noise	Threshold of high-magnitude noise	1.75-2.65	0.025
+NoData	Out of range value	-6999, 9999	-6999

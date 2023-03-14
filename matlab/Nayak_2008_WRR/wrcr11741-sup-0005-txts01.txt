@@ -1,0 +1,728 @@
+VERSION 5.00
+Object = "{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0"; "comdlg32.ocx"
+Begin VB.Form frmPrecipitationCorrection 
+   Caption         =   "Precipitation Correction"
+   ClientHeight    =   2865
+   ClientLeft      =   60
+   ClientTop       =   450
+   ClientWidth     =   7095
+   LinkTopic       =   "Form1"
+   ScaleHeight     =   2865
+   ScaleWidth      =   7095
+   StartUpPosition =   3  'Windows Default
+   Begin VB.Frame Frame1 
+      Caption         =   "Program Parameters"
+      Height          =   1695
+      Left            =   120
+      TabIndex        =   16
+      Top             =   1080
+      Width           =   3615
+      Begin VB.TextBox txtNoData 
+         Height          =   285
+         Left            =   1920
+         TabIndex        =   24
+         Text            =   "-6999"
+         Top             =   600
+         Width           =   1575
+      End
+      Begin VB.TextBox txtrecharge 
+         Height          =   285
+         Left            =   1920
+         TabIndex        =   23
+         Text            =   "50.00"
+         Top             =   1320
+         Width           =   1575
+      End
+      Begin VB.TextBox txtBucketDump 
+         Height          =   285
+         Left            =   120
+         TabIndex        =   22
+         Text            =   "6.25"
+         Top             =   1320
+         Width           =   1575
+      End
+      Begin VB.TextBox txtCritical 
+         Height          =   285
+         Left            =   120
+         TabIndex        =   21
+         Text            =   "2.5"
+         Top             =   600
+         Width           =   1575
+      End
+      Begin VB.Label O 
+         Caption         =   "Out of Range Value"
+         Height          =   255
+         Left            =   1920
+         TabIndex        =   20
+         Top             =   360
+         Width           =   1575
+      End
+      Begin VB.Label Label6 
+         Caption         =   " Noise Limit"
+         Height          =   255
+         Left            =   120
+         TabIndex        =   19
+         Top             =   360
+         Width           =   1935
+      End
+      Begin VB.Label Label4 
+         Caption         =   "Bucket Recharge "
+         Height          =   255
+         Left            =   1920
+         TabIndex        =   18
+         Top             =   1080
+         Width           =   1455
+      End
+      Begin VB.Label Label2 
+         Caption         =   "Bucket Decanting "
+         Height          =   255
+         Left            =   120
+         TabIndex        =   17
+         Top             =   1080
+         Width           =   1815
+      End
+   End
+   Begin MSComDlg.CommonDialog dlgOpen 
+      Left            =   6120
+      Top             =   120
+      _ExtentX        =   847
+      _ExtentY        =   847
+      _Version        =   393216
+   End
+   Begin VB.Frame Frame2 
+      Caption         =   "Output File Time Interval"
+      Height          =   975
+      Left            =   3840
+      TabIndex        =   12
+      Top             =   1080
+      Width           =   3135
+      Begin VB.TextBox txtInterval 
+         BackColor       =   &H8000000F&
+         Height          =   285
+         Left            =   2280
+         TabIndex        =   15
+         Top             =   600
+         Width           =   735
+      End
+      Begin VB.OptionButton optConstInterval 
+         Caption         =   "Fixed Interval (min)"
+         Height          =   195
+         Left            =   480
+         TabIndex        =   14
+         Top             =   600
+         Width           =   1815
+      End
+      Begin VB.OptionButton optSame 
+         Caption         =   "Same as Input File"
+         Height          =   255
+         Left            =   480
+         TabIndex        =   13
+         Top             =   240
+         Value           =   -1  'True
+         Width           =   1815
+      End
+   End
+   Begin VB.CommandButton cmdWaterYear 
+      Caption         =   "Browse"
+      Height          =   375
+      Left            =   5760
+      TabIndex        =   11
+      Top             =   600
+      Width           =   1215
+   End
+   Begin VB.TextBox txtOutputYearFile 
+      Height          =   315
+      Left            =   3600
+      TabIndex        =   10
+      Top             =   600
+      Width           =   2055
+   End
+   Begin VB.TextBox Text1 
+      Height          =   285
+      Left            =   960
+      TabIndex        =   8
+      Top             =   600
+      Width           =   1575
+   End
+   Begin VB.CommandButton cmdCancle 
+      Caption         =   "Cancel"
+      Height          =   615
+      Left            =   5520
+      TabIndex        =   6
+      Top             =   2160
+      Width           =   1455
+   End
+   Begin VB.CommandButton cmdOK 
+      Caption         =   "OK"
+      Height          =   615
+      Left            =   3840
+      TabIndex        =   5
+      Top             =   2160
+      Width           =   1455
+   End
+   Begin VB.CommandButton cmdStartYear 
+      Caption         =   "Browse"
+      Height          =   375
+      Left            =   5760
+      TabIndex        =   4
+      Top             =   120
+      Width           =   1215
+   End
+   Begin VB.TextBox txtInputYearFile 
+      Height          =   315
+      Left            =   3600
+      TabIndex        =   2
+      Top             =   120
+      Width           =   2055
+   End
+   Begin VB.TextBox txtStartYear 
+      Height          =   285
+      Left            =   960
+      TabIndex        =   1
+      Top             =   120
+      Width           =   1575
+   End
+   Begin VB.Label Label5 
+      Caption         =   "Output  File"
+      Height          =   255
+      Left            =   2640
+      TabIndex        =   9
+      Top             =   600
+      Width           =   1095
+   End
+   Begin VB.Label Site 
+      Caption         =   "Site Name"
+      Height          =   255
+      Left            =   120
+      TabIndex        =   7
+      Top             =   600
+      Width           =   1215
+   End
+   Begin VB.Label Label3 
+      Caption         =   "Input File"
+      Height          =   255
+      Left            =   2640
+      TabIndex        =   3
+      Top             =   120
+      Width           =   1095
+   End
+   Begin VB.Label Label1 
+      Caption         =   "Year "
+      Height          =   255
+      Left            =   480
+      TabIndex        =   0
+      Top             =   120
+      Width           =   375
+   End
+End
+Attribute VB_Name = "frmPrecipitationCorrection"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+
+
+
+
+
+Option Explicit
+    Dim i As Long, j As Long, k As Long, n As Long, p As Long
+    Dim S As Double, MM As Integer
+    'Dim JulianDay1 As Integer, Julianday2 As Integer
+    Dim InputYearFile As String
+    Dim OuputYearFile As String
+    'Dim OutPutFile As String
+    Dim a As String, Myarray() As String
+    Dim DayOfYear() As Integer, TimeOfDay() As Integer
+    'Dim WaterYearDay() As Integer
+    Dim CumPPT() As Double
+    Dim FinalCumPPT() As Double
+    Dim FinalT As Long
+    Dim Records As Long, RecordLength As Long
+    'Dim WaterYearTime() As Date
+    Dim StartTime As Date, TimeInterval As Double
+    Dim Hour As Integer, Minute As Integer
+    Dim NoData As Double, MaxLimit As Double
+    Dim NextRecord As Long, PreviousRecord As Long
+    Dim BucketDump As Double, Recharge As Double
+    Dim Time() As Date
+    Dim Diff As Double, ConsDiff1 As Double
+    Dim ConsDiff2 As Double, ConsDiff3 As Double, ConsDiff4 As Double
+    Dim PPT() As Double
+    Dim PPT_B() As Double
+    Dim PPT_E() As Double
+    Dim CPPT() As Double, CPPTCrr() As Double
+    Dim FinalCPPT() As Double, FinalPPT() As Double
+    Dim FinalTime() As Date
+    Dim Final() As Double
+    'Dim DataS() As Double, DataUS() As Double, DataS1() As Double
+    Dim Noise As Double
+    
+Private Sub cmdCancle_Click()
+    End
+End Sub
+
+Private Sub cmdOK_Click()
+    On Error Resume Next
+        'Input files/ File Name
+        InputYearFile = txtInputYearFile.Text
+        
+        'Output files/ File Name
+        OuputYearFile = txtOutputYearFile.Text
+        
+        i = 0
+        j = 0
+        
+        'Assigning the bucket dump value as critical value
+        BucketDump = CDbl(txtBucketDump.Text)
+        
+        'NOTE: BUCKET DUMP VALUE SHOULD BE SLIGHTLY SMALLER THEN THE SMALLEST VARIATION
+        'DUE TO BUCKET DUMP. BUT IT SHOULD BE GREATER THEN CRITICAL VALUE
+        
+        'Added on 10/4/05 to accomodate sudden increase due to bucket recharge
+        Recharge = CDbl(txtrecharge.Text)
+        
+        'Critical Shielded and UnShielded gauge limit/ User defined possible variation limit
+        Noise = CDbl(txtCritical.Text)
+        
+        'NOTE: Noise VALUE SHOULD BE SMALLER THEN BOTH BUCKET RECHARGE AND BUCKET DUMP
+        
+    'Checking whether the files are in correct format
+    
+    If InputYearFile = "" Then
+        MsgBox "Input file is not valid"
+        Exit Sub
+    Else
+        Open InputYearFile For Input As #1
+    End If
+    
+    If OuputYearFile = "" Then
+        MsgBox "Please enter a valid ouput file name"
+        Exit Sub
+    Else
+        Open OuputYearFile For Output As #3
+    End If
+    
+         
+    'Counting the lenght of reocrds in the input file
+    Do
+        Line Input #1, a
+        
+            i = i + 1
+    
+    Loop Until EOF(1)
+    
+    Records = i         'Note: Length of records = Records-1
+    
+    Seek #1, 1          'Go back to begining of input file
+    
+    i = 0
+    
+    'Initalizing the array to store the records
+    ReDim DayOfYear(Records - 1)
+    ReDim TimeOfDay(Records - 1)
+    ReDim CumPPT(Records - 1)
+    ReDim CPPT(Records - 1)
+    ReDim CPPTCrr(Records - 1)
+    ReDim PPT(Records - 1)
+    
+    ReDim Time(Records - 1)
+    
+    'Storing the data in arrays for WaterYear data of year 1
+    Do
+        Line Input #1, a
+        a = " " + a
+        a = Replace(a, "        ", ",")
+        a = Replace(a, "       ", ",")
+        a = Replace(a, "      ", ",")
+        a = Replace(a, "     ", ",")
+        a = Replace(a, "    ", ",")
+        a = Replace(a, "   ", ",")
+        a = Replace(a, "  ", ",")
+        a = Replace(a, " ", ",")
+        Myarray = Split(a, ",")
+        'If Val(Myarray(1)) >= JulianDay1 Then
+            DayOfYear(i) = Val(Myarray(1))
+            'WaterYearDay(i) = DayOfYear(i) - JulianDay1 + 1
+            TimeOfDay(i) = Val(Myarray(2))
+            CumPPT(i) = Val(Myarray(3))
+            
+            Hour = Int(TimeOfDay(i) / 100)
+            Minute = TimeOfDay(i) Mod 100
+            Time(i) = DayOfYear(i) + Hour / 24 + Minute / (24 * 60)
+            
+            i = i + 1
+        'End If
+    Loop Until EOF(1)
+     
+   
+    Close #1
+        
+        
+    NoData = CDbl(txtNoData.Text)
+    'Checking whether first value is no data value
+    
+    If CumPPT(0) = NoData Then
+        n = 1
+        While CumPPT(n) = NoData Or CumPPT(n) < 0
+            n = n + 1
+        Wend
+        For j = 0 To n - 1
+            CumPPT(j) = CumPPT(n)
+        Next
+    End If
+    
+    For i = 1 To Records - 1
+        If CumPPT(i) = NoData Then
+            'Find Previous and Next CumPPT values which are acceptable
+            'If the difference is not more then bucket dump ie the unreasonable
+            'Values are not associted with the bucket dump then distribute the
+            'NoData values in the range. if there is bucket dump then make the
+            'CumPPT equal to previous Record cumPPT.
+            
+            p = i - 1
+            While CumPPT(p) < 0
+                p = p - 1
+            Wend
+            
+            n = i + 1
+            While CumPPT(n) = NoData Or CumPPT(n) < 0
+               n = n + 1
+            Wend
+            
+            If CumPPT(p) - CumPPT(n) > BucketDump Or CumPPT(n) - CumPPT(p) > Recharge Then
+                'Bucket Dump occured during the unreasonable data values
+                For j = p + 1 To n - 1
+                    CumPPT(j) = CumPPT(p)
+                Next
+            Else
+                'There is no bucket Dump during the time period
+                'Distribute the difference among the cells.
+                For j = p + 1 To n - 1
+                    CumPPT(j) = CumPPT(p) + (j - p) * (CumPPT(n) - CumPPT(p)) / (n - p)
+                Next
+            End If
+        End If
+        
+    Next
+        
+    CPPT(0) = 0
+    
+    PPT(0) = 0
+    
+    
+    For i = 1 To Records - 1
+        If Abs(CumPPT(i - 1) - CumPPT(i)) > Noise Then
+            'drop in the cum-ppt values
+            'has to be a noise
+            'Find the next set of cunsistent values
+            'Current = i - 1
+            n = i
+            Do
+                Diff = CumPPT(i - 1) - CumPPT(n)
+                ConsDiff1 = CumPPT(n) - CumPPT(n + 1)
+                ConsDiff2 = CumPPT(n + 1) - CumPPT(n + 2)
+                ConsDiff3 = CumPPT(n + 2) - CumPPT(n + 3)
+                ConsDiff4 = CumPPT(n + 3) - CumPPT(n + 4)
+                n = n + 1
+            Loop Until (Abs(ConsDiff1) < Noise And Abs(ConsDiff2) < Noise And Abs(ConsDiff3) < Noise And Abs(ConsDiff4) < Noise)
+                        
+            If Diff > BucketDump Or Diff < -Recharge Then
+                'It is a Bucket Dump event
+                For j = i To n - 1
+                    PPT(j) = 0
+                Next j
+                i = n - 1
+            ElseIf Abs(Diff) < Noise Or Diff > 0 Then
+                'Noise Signal: Suddent decrease then come back to original
+                'Make all intermittent PPT = 0
+                For j = i To n - 1
+                    PPT(j) = (CumPPT(n - 1) - CumPPT(i - 1)) / (n - i)
+                Next j
+                
+                i = n - 1
+                
+                'added on 10/5/2005
+                'Drop in precip less then Bucket dump/ noise
+            'ElseIf Diff > 0 Then
+             '   For j = i To n - 2
+              '      PPT(j) = 0
+               ' Next j
+                'PPT(n - 1) = CumPPT(n - 1) - CumPPT(i - 1)
+                'i = n - 1
+            
+            Else
+                                
+                For j = i To n - 1
+                    PPT(j) = CumPPT(j) - CumPPT(j - 1)
+                Next j
+                i = n - 1
+            
+            End If
+       
+        Else
+         
+            PPT(i) = CumPPT(i) - CumPPT(i - 1)
+        End If
+        
+    Next i
+         
+    'removing small noises:Scanning cycle 2
+    CPPT(0) = CumPPT(0)
+    
+    For i = 1 To Records - 1
+        CPPT(i) = CPPT(i - 1) + PPT(i)
+        
+    Next i
+    
+    'For i = 0 To Records - 1
+            'Print #3, Format(DayOfYear(i), "000"); Tab(6); Format(TimeOfDay(i), "0000"); Tab(11); Format(CPPT(i), "0.000")
+    'Next
+    
+    ReDim PPT_B(Records - 1)
+    
+    ReDim PPT_E(Records - 1)
+       
+    'modified on 10/5/2005
+    'Soothening loop is modified form a one step procedure to a three step procedure
+    For i = 0 To Records - 1
+        PPT_B(i) = PPT(i)
+        PPT_E(i) = PPT(i)
+    Next
+    
+    'Smoothening loop that begins with the starting of the file
+    If PPT_B(1) < 0 Then
+        PPT_B(2) = PPT_B(1) + PPT_B(2)
+        PPT_B(1) = 0
+    End If
+    If PPT_B(2) < 0 Then
+        If PPT_B(1) + PPT_B(2) + PPT_B(3) < 0 Then
+            PPT_B(3) = PPT_B(1) + PPT_B(2) + PPT_B(3)
+            PPT_B(1) = 0
+            PPT_B(2) = 0
+        Else
+            PPT_B(1) = (PPT_B(1) + PPT_B(2) + PPT_B(3)) / 3
+            PPT_B(2) = PPT_B(1)
+            PPT_B(3) = PPT_B(1)
+        End If
+    End If
+    
+    For i = 3 To Records - 3
+        If PPT_B(i) < 0 Then
+            If PPT_B(i - 2) + PPT_B(i - 1) + PPT_B(i) + PPT_B(i + 1) + PPT_B(i + 2) < 0 Then
+                PPT_B(i + 2) = PPT_B(i - 2) + PPT_B(i - 1) + PPT_B(i) + PPT_B(i + 1) + PPT_B(i + 2)
+                PPT_B(i - 2) = 0
+                PPT_B(i - 1) = 0
+                PPT_B(i) = 0
+                PPT_B(i + 1) = 0
+            Else
+                PPT_B(i - 2) = (PPT_B(i - 2) + PPT_B(i - 1) + PPT_B(i) + PPT_B(i + 1) + PPT_B(i + 2)) / 5
+                PPT_B(i - 1) = PPT_B(i - 2)
+                PPT_B(i) = PPT_B(i - 2)
+                PPT_B(i + 1) = PPT_B(i - 2)
+                PPT_B(i + 2) = PPT_B(i - 2)
+            End If
+        End If
+        
+    Next i
+    
+    'Smoothing that begins form the end of file: added 10/5/05
+    
+    If PPT_E(Records - 1) < 0 Then
+        PPT_E(Records - 2) = PPT_E(Records - 1) + PPT_E(Records - 2)
+        PPT_E(Records - 1) = 0
+    End If
+    If PPT_E(Records - 2) < 0 Then
+        If PPT_E(Records - 1) + PPT_E(Records - 2) + PPT_E(Records - 3) < 0 Then
+            PPT_E(Records - 3) = PPT_E(Records - 1) + PPT_E(Records - 2) + PPT_E(Records - 3)
+            PPT_E(Records - 1) = 0
+            PPT_E(Records - 2) = 0
+        Else
+            PPT_E(Records - 1) = (PPT_E(Records - 1) + PPT_E(Records - 2) + PPT_E(Records - 3)) / 3
+            PPT_E(Records - 2) = PPT_E(Records - 1)
+            PPT_E(Records - 3) = PPT_E(Records - 1)
+        End If
+    End If
+    
+    For i = Records - 3 To 3 Step -1
+        If PPT_E(i) < 0 Then
+            If PPT_E(i - 2) + PPT_E(i - 1) + PPT_E(i) + PPT_E(i + 1) + PPT_E(i + 2) < 0 Then
+                PPT_E(i - 2) = PPT_E(i - 2) + PPT_E(i - 1) + PPT_E(i) + PPT_E(i + 1) + PPT_E(i + 2)
+                PPT_E(i + 2) = 0
+                PPT_E(i - 1) = 0
+                PPT_E(i) = 0
+                PPT_E(i + 1) = 0
+            Else
+                PPT_E(i - 2) = (PPT_E(i - 2) + PPT_E(i - 1) + PPT_E(i) + PPT_E(i + 1) + PPT_E(i + 2)) / 5
+                PPT_E(i - 1) = PPT_E(i - 2)
+                PPT_E(i) = PPT_E(i - 2)
+                PPT_E(i + 1) = PPT_E(i - 2)
+                PPT_E(i + 2) = PPT_E(i - 2)
+            End If
+        End If
+        
+    Next i
+    
+    'Taking average of smoothened values
+    
+    For i = 0 To Records - 1
+        PPT(i) = (PPT_B(i) + PPT_E(i)) / 2
+    Next
+    
+    PPT(0) = 0
+    
+    If PPT(1) < 0 Then PPT(1) = 0
+    
+    If PPT(Records - 1) < 0 Then PPT(Records - 1) = 0
+    
+    If PPT(Records - 2) < 0 Then PPT(Records - 2) = 0
+    
+    
+    CPPTCrr(0) = 0
+    
+    For i = 1 To Records - 1
+        CPPTCrr(i) = CPPTCrr(i - 1) + PPT(i)
+        
+    Next i
+    
+    n = 0
+    If optSame.Value = True Then
+        
+        'Printing the Water Year File
+        For i = 0 To Records - 1
+            Print #3, Format(DayOfYear(i), "000"); Tab(6); Format(TimeOfDay(i), "0000"); Tab(11); Format(CPPTCrr(i), "0.00")
+        Next
+        'Closing the output file
+        Close #3
+        RecordLength = Records
+    Else
+        TimeInterval = CDbl(txtInterval.Text)
+        RecordLength = (CLng(Time(Records - 1) - Time(0)) * 24 * 60) / TimeInterval
+        ReDim FinalTime(RecordLength - 1)
+        ReDim Final(RecordLength - 1)
+        
+        ReDim FinalCumPPT(RecordLength - 1)
+        
+        ReDim FinalCPPT(RecordLength - 1)
+        
+        ReDim FinalPPT(RecordLength - 1)
+                
+        FinalTime(0) = Time(0)
+        For i = 1 To RecordLength - 1
+            
+        
+            FinalTime(i) = FinalTime(i - 1) + TimeInterval / (60 * 24)
+        
+        Next
+        j = 0
+        i = 0
+        Do
+            If Abs(FinalTime(j) - Time(i)) < 0.000001 Then
+                Final(j) = CPPTCrr(i)
+                
+                FinalCumPPT(j) = CumPPT(i)
+                
+                FinalCPPT(j) = CPPT(i)
+                
+                If j = 0 Then
+                    FinalPPT(j) = 0
+                    
+                Else
+                    FinalPPT(j) = Final(j) - Final(j - 1)
+                    
+                End If
+                
+                FinalT = Int((FinalTime(j) - Int(FinalTime(j))) * 24) * 100
+                MM = (CInt((((FinalTime(j) - Int(FinalTime(j))) * 24) - Int((FinalTime(j) - Int(FinalTime(j))) * 24)) * 60))
+
+                If MM > 59.99 Then
+                    FinalT = FinalT + 100
+                    If FinalT = 2400 Then FinalT = 0
+                Else
+                    FinalT = FinalT + MM
+                End If
+                
+                Print #3, Format(Int(FinalTime(j) + 0.000001), "000"); Tab(6); Format(FinalT, "0000"); Tab(11); Format(Final(j), "0.00")
+                
+                i = i + 1
+                j = j + 1
+                                
+            Else
+                If Time(i - 1) < FinalTime(j) And FinalTime(j) < Time(i) Then
+                    
+                    Final(j) = CPPTCrr(i - 1) + (CPPTCrr(i) - CPPTCrr(i - 1)) * (FinalTime(j) - Time(i - 1)) / (Time(i) - Time(i - 1))
+                    
+                    FinalCumPPT(j) = CumPPT(i - 1) + (CumPPT(i) - CumPPT(i - 1)) * (FinalTime(j) - Time(i - 1)) / (Time(i) - Time(i - 1))
+                    
+                    FinalCPPT(j) = CPPT(i - 1) + (CPPT(i) - CPPT(i - 1)) * (FinalTime(j) - Time(i - 1)) / (Time(i) - Time(i - 1))
+                    
+                    If j = 0 Then
+                        FinalPPT(j) = 0
+                    
+                    Else
+                        FinalPPT(j) = Final(j) - Final(j - 1)
+                        
+                    End If
+                
+                    FinalT = Int((FinalTime(j) - Int(FinalTime(j))) * 24) * 100
+                    MM = (CInt((((FinalTime(j) - Int(FinalTime(j))) * 24) - Int((FinalTime(j) - Int(FinalTime(j))) * 24)) * 60))
+
+                    If MM > 59.99 Then
+                        FinalT = FinalT + 100
+                        If FinalT = 2400 Then FinalT = 0
+                    Else
+                        FinalT = FinalT + MM
+                    End If
+                    Print #3, Format(Int(FinalTime(j) + 0.000001), "000"); Tab(6); Format(FinalT, "0000"); Tab(11); Format(Final(j), "0.00")
+                
+                    j = j + 1
+                Else
+                    i = i + 1
+                End If
+            End If
+        Loop While (i < Records)
+        Close #3
+    End If
+
+End Sub
+
+Private Sub cmdStartYear_Click()
+    dlgOpen.ShowOpen
+    If dlgOpen.FileTitle <> "" Then
+        txtInputYearFile.Text = dlgOpen.FileName
+        txtOutputYearFile.Text = Replace(txtInputYearFile.Text, ".rfp", ".rfc")
+    Else
+        MsgBox ("Not a valid file name")
+    End If
+End Sub
+
+Private Sub cmdWaterYear_Click()
+    dlgOpen.ShowOpen
+    If dlgOpen.FileTitle <> "" Then
+        txtOutputYearFile.Text = dlgOpen.FileName
+    Else
+        MsgBox ("Not a valid file name")
+    End If
+End Sub
+
+
+Private Sub optConstInterval_Click()
+    If optConstInterval.Value = True Then
+        txtInterval.Enabled = True
+        txtInterval.BackColor = &H80000005
+    End If
+End Sub
+
+Private Sub optSame_Click()
+    If optSame.Value = True Then
+        txtInterval.Text = ""
+        txtInterval.Enabled = False
+        txtInterval.BackColor = &H8000000F
+                
+    End If
+End Sub
+
+
+
+

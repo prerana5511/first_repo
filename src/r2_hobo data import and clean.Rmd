@@ -11,12 +11,15 @@ knitr::opts_chunk$set(echo = TRUE)
 library(here)
 here <- here()
 here
-# library(tidyverse)
-library(dplyr)
-library(readr)
-library(tidyr)
+library(tidyverse)
+library(lubridate)
+# library(dplyr)
+# library(readr)
+# library(tidyr)
+# library(purrr)
 library(fs)
-
+library(xts)
+library(dygraphs)
 
 
 #Load import function
@@ -66,9 +69,22 @@ hobo <- map_dfr(paths, hobo_import)
 hobo_2 <- hobo %>% 
   mutate(vol_L = depth_m*1000 * const$val[["SF_L_mm"]], #0.05 L/mm depth in bucket
          vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
-         yield_mm_hobo = vol_mm3/const$val[["SF_B_CA_mm2"]])  #water yield normalized to tree canopy area 
+         yield_mm_hobo = vol_mm3/const$val[["SF_B_CA_mm2"]],#water yield normalized to tree canopy area 
+         yield_mm_hobo_zeroed = case_when(yield_mm_hobo < 0 ~ 0.0,
+                                          TRUE ~ yield_mm_hobo))
+
+hobo_3 <- hobo_2 %>% 
+  mutate(dt_hr = round_date(dt, unit = "hour")) %>% 
+  group_by(dt_hr) %>% 
+  summarise(yield_mm_hobo_hr = sum(yield_mm_hobo_zeroed)) %>% 
+  ungroup()
 
 #plot
+hobo_3_xts <- xts(hobo_3 %>% select(dt_hr, yield_mm_hobo_hr), order.by=hobo_3$dt_hr)
+dygraph(hobo_3_xts) %>% #dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+  
+
 plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
 
 dir_create(paste0(here, "/output/hobo_imported/", site))
@@ -197,9 +213,95 @@ rm(hobo, hobo_2, site, paths)
 
 ```
 
+##1.1 Browse time series to establish events manually
+```{r}
+
+site <- "SF-A"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo2 %>% rename("SFA_mm" = yield_mm_hobo)
+
+site <- "SF-B"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo_all %>% full_join(., hobo2 %>% 
+                                     rename("SFB_mm" = yield_mm_hobo),
+                                   by = "dt")
 
 
-##1.1 Prepare imported hobo for import to Matlab
+
+site <- "SF-C"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo_all %>% full_join(., hobo2 %>% 
+                                     rename("SFC_mm" = yield_mm_hobo),
+                                   by = "dt")
+
+
+site <- "SF-D"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo_all %>% full_join(., hobo2 %>% 
+                                     rename("SFD_mm" = yield_mm_hobo),
+                                   by = "dt")
+site <- "TF-B"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo_all %>% full_join(., hobo2 %>% 
+                                     rename("TFB_mm" = yield_mm_hobo),
+                                   by = "dt")
+
+site <- "TF-D"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo_all %>% full_join(., hobo2 %>% 
+                                     rename("TFD_mm" = yield_mm_hobo),
+                                   by = "dt")
+
+#interactive plot of throughfall
+hobo_all_xts <- xts(hobo_all %>% select(dt, TFB_mm, TFD_mm),
+                    order.by=hobo_all$dt)
+dygraph(hobo_all_xts) %>% dyAxis("y", valueRange = c(-1, 100)) %>% 
+  dyRangeSelector() %>% dyOptions(useDataTimezone = TRUE)
+
+#interactive plot of stemflow
+hobo_all2_xts <- xts(hobo_all %>% select(dt, SFA_mm, SFB_mm, SFC_mm, SFD_mm),
+                     order.by=hobo_all$dt)
+dygraph(hobo_all2_xts) %>% dyAxis("y", valueRange = c(-0.1, 1)) %>% 
+  dyRangeSelector() %>% dyOptions(useDataTimezone = TRUE)
+
+```
+
+
+
+
+
+#old code related to matlab
+##X Prepare imported hobo for import to Matlab
 ```{r}
 #SF-A -----
 #Load hobo record
@@ -207,15 +309,20 @@ site <- "SF-A"
 hobo <- readRDS(paste0(here, "/output/hobo_imported/",
                        site, "/", site, "_imported.Rds"))
 
+
+hobo_xts <- xts(hobo %>% select(dt, yield_mm_hobo), order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+
 #create datetime character for input to matlab 
 hobo_ml <- hobo %>%
   arrange(dt) %>% 
   mutate(datetime = as.character(dt),
          hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
                                    TRUE ~ yield_mm_hobo)) %>% 
-  select(datetime, yield_mm_hobo) %>% 
+  select(datetime, hobo_yield_mm) 
   # rename("datetime" = "datetime") %>% 
-  drop_na()
+  # drop_na()
 
 sum(duplicated(hobo_ml$datetime))
 
@@ -390,11 +497,6 @@ rm(site, hobo, hobo_ml)
 
 ```
 
-
-
-#Kevin will run Matlab output
-
-#STOP CODE FOR LATER:
 ## Correct matlab output
 ```{r}
 # Note the datenum matlab function does not account for time zone or DST.
