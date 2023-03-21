@@ -20,6 +20,9 @@ library(lubridate)
 library(fs)
 library(xts)
 library(dygraphs)
+library(readxl)
+library(ggplot2)
+library(scales)
 
 
 #Load import function
@@ -297,8 +300,250 @@ dygraph(hobo_all2_xts) %>% dyAxis("y", valueRange = c(-0.1, 1)) %>%
 ```
 
 
+#Generate intervals
+```{r}
+
+r2_events <- readxl::read_excel(paste0(here, "/data/hobo/hobo_events.xlsx"))
+sapply(r2_events, class)
+r2_events2 <- r2_events %>% 
+  mutate(.after = end_time_EST,
+         datetime_interval_EST = lubridate::interval(start = start_time_EST,
+                                                      end = end_time_EST,
+                                                      tz = "EST"))
+  
+class(r2_events2$datetime_interval_EST)
+tz(r2_events2$datetime_interval_EST) #timezone of interval gives an error
+tz(r2_events2$start_time_EST) #timezone of start is EST
+view(r2_events2)    
+
+#To check the interval is in EST, we can pull out the start
+
+start <- int_start(r2_events2$start_time_EST[1])
+class(start)
+tz(start)
+
+start <- int_start( r2_events2$datetime_interval_EST[1])
+class(start)
+tz(start)
+
+#Now we have a set of intervals to use for filtering
+intervals <- r2_events2 %>% 
+  distinct(datetime_interval_EST, .keep_all = TRUE) %>% 
+  select(hobo_event_n, datetime_interval_EST) %>% 
+  mutate(event_dur_sec = dseconds(datetime_interval_EST))
+
+```
 
 
+
+#Assign event numbers/filter each hobo record based on event intervals ----
+
+```{r}
+
+hobo_rec <- hobo_all %>% 
+  mutate(.after = TFD_mm, #indicates where the new column is placed
+         dt2 = as.POSIXct(dt, format = "%m/%d/%Y %H:%M")) %>% 
+  filter(minute(dt2) == 0) %>% #remove subhourly timestamps
+  arrange(dt2) #Order from earliest to latest timestamp
+
+
+#create an empty dataframe with same headers
+hobo_events <- slice(hobo_rec, 0) 
+
+i=1
+rm(i)
+
+for (i in 1:length(intervals$hobo_event_n)) {
+  interval <- hobo_rec %>%
+    filter(dt2 %within% intervals$datetime_interval_EST[i]) %>% 
+    mutate(hobo_event_n = intervals$hobo_event_n[i])
+  
+  hobo_events <- bind_rows(hobo_events, interval)
+}
+
+
+
+#Check and correct timezone
+tz(hobo_events$dt2)
+attr(hobo_events$dt2, "tzone") <- "EST"
+tz(hobo_events$dt2)
+#Now the hourly time series record is filtered with event numbers
+
+```
+
+
+
+# Create rate for each event
+```{r}
+
+#SFA
+
+hobo_rate_SFA <- hobo_events %>%
+  mutate(.after = SFA_mm, #indicates where the new column is placed
+         Previous_SFA_mm  = lag(hobo_events$SFA_mm),
+         Change_SFA_mm = (hobo_events$SFA_mm)-Previous_SFA_mm ,
+         Rate_SFA_mm  = Change_SFA_mm /Previous_SFA_mm ) %>%
+  select(-Previous_SFA_mm , -Change_SFA_mm)
+
+#hobo_rate <- hobo_rate_SFA %>% full_join(., hobo_events)
+
+
+#SFB
+
+hobo_rate_SFB <- hobo_rate_SFA %>%
+  mutate(.after = SFB_mm, #indicates where the new column is placed
+         Previous_SFB_mm  = lag(hobo_events$SFB_mm),
+         Change_SFB_mm = (hobo_events$SFB_mm)-Previous_SFB_mm ,
+         Rate_SFB_mm  = Change_SFB_mm /Previous_SFB_mm ) %>%
+  select(-Previous_SFB_mm , -Change_SFB_mm)
+
+
+#hobo_rate <- hobo_rate_SFB %>% full_join(., hobo_rate_SFA)
+
+#SFC
+
+hobo_rate_SFC <- hobo_rate_SFB %>%
+  mutate(.after = SFC_mm, #indicates where the new column is placed
+         Previous_SFC_mm  = lag(hobo_events$SFC_mm),
+         Change_SFC_mm = (hobo_events$SFC_mm)-Previous_SFC_mm ,
+         Rate_SFC_mm  = Change_SFC_mm /Previous_SFC_mm ) %>%
+  select(-Previous_SFC_mm , -Change_SFC_mm)
+
+
+
+#SFD
+
+hobo_rate_SFD <- hobo_rate_SFC %>%
+  mutate(.after = SFD_mm, #indicates where the new column is placed
+         Previous_SFD_mm  = lag(hobo_events$SFD_mm),
+         Change_SFD_mm = (hobo_events$SFD_mm)-Previous_SFD_mm ,
+         Rate_SFD_mm  = Change_SFD_mm /Previous_SFD_mm ) %>%
+  select(-Previous_SFD_mm , -Change_SFD_mm)
+
+
+
+#TFB
+
+hobo_rate_TFB <- hobo_rate_SFD %>%
+  mutate(.after = TFB_mm, #indicates where the new column is placed
+         Previous_TFB_mm  = lag(hobo_events$TFB_mm),
+         Change_TFB_mm = (hobo_events$TFB_mm)-Previous_TFB_mm ,
+         Rate_TFB_mm  = Change_TFB_mm /Previous_TFB_mm ) %>%
+  select(-Previous_TFB_mm , -Change_TFB_mm)
+
+
+#TFD
+
+hobo_rate_TFD <- hobo_rate_TFB %>%
+  mutate(.after = TFD_mm, #indicates where the new column is placed
+         Previous_TFD_mm  = lag(hobo_events$TFD_mm),
+         Change_TFD_mm = (hobo_events$TFD_mm)-Previous_TFD_mm ,
+         Rate_TFD_mm  = Change_TFD_mm /Previous_TFD_mm ) %>%
+  select(-Previous_TFD_mm , -Change_TFD_mm)
+
+
+hobo_rate <- hobo_rate_TFD %>%
+  select(-dt2)
+
+hobo_only_rates <-hobo_rate %>%
+  
+  select(dt, hobo_event_n, Rate_SFA_mm, Rate_SFB_mm, Rate_SFC_mm, Rate_SFD_mm,
+         Rate_TFB_mm, Rate_TFD_mm)%>%
+  mutate(across(starts_with("Rate"), as.character)) %>%
+  pivot_longer(3:8, names_to = "Observations",
+               values_to = "Rates") %>%
+  arrange(hobo_event_n, dt, Observations, Rates) %>%
+  group_by(hobo_event_n) %>%
+  drop_na() %>%
+  ungroup %>%
+#  pivot_wider(id_cols =  Observations)%>%
+  mutate(across(starts_with("Rate"), as.numeric))
+         
+```
+
+```{r}
+# Create summary statistics for each event
+
+#SFA
+
+SFA_summary <- hobo_rate %>% 
+  group_by(hobo_event_n) %>%
+  dplyr::summarise(SFA_rate_sum_mm = sum(SFA_mm),
+                 SFA_max_rate_mm_hr = max(Rate_SFA_mm, na.rm = TRUE),
+                 SFA_mean_rate_mm_hr = mean(Rate_SFA_mm), na.rm = TRUE)%>% 
+  left_join(intervals, ., by = "hobo_event_n")
+
+
+
+#SFB
+
+SFB_summary <- hobo_rate %>% 
+  group_by(hobo_event_n) %>%
+  dplyr::summarise(SFB_rate_sum_mm = sum(SFB_mm),
+                 SFB_max_rate_mm_hr = max(Rate_SFB_mm, na.rm = TRUE),
+                 SFB_mean_rate_mm_hr = mean(Rate_SFB_mm), na.rm = TRUE)%>% 
+  left_join(SFA_summary, ., by = "hobo_event_n")
+
+
+
+#SFC
+
+SFC_summary <- hobo_rate %>% 
+  group_by(hobo_event_n) %>%
+  dplyr::summarise(SFC_rate_sum_mm = sum(SFC_mm),
+                 SFC_max_rate_mm_hr = max(Rate_SFC_mm, na.rm = TRUE),
+                 SFC_mean_rate_mm_hr = mean(Rate_SFC_mm), na.rm = TRUE)%>% 
+  left_join(SFB_summary, ., by = "hobo_event_n")
+
+
+
+#SFD
+
+SFD_summary <- hobo_rate %>% 
+  group_by(hobo_event_n) %>%
+  dplyr::summarise(SFD_rate_sum_mm = sum(SFD_mm),
+                 SFD_max_rate_mm_hr = max(Rate_SFD_mm, na.rm = TRUE),
+                 SFD_mean_rate_mm_hr = mean(Rate_SFD_mm), na.rm = TRUE)%>% 
+  left_join(SFC_summary, ., by = "hobo_event_n")
+
+
+#TFB
+
+TFB_summary <- hobo_rate %>% 
+  group_by(hobo_event_n) %>%
+  dplyr::summarise(TFB_rate_sum_mm = sum(TFB_mm),
+                 TFB_max_rate_mm_hr = max(Rate_TFB_mm, na.rm = TRUE),
+                 TFB_mean_rate_mm_hr = mean(Rate_TFB_mm), na.rm = TRUE)%>% 
+  left_join(SFD_summary, ., by = "hobo_event_n")
+
+
+#TFD
+
+TFD_summary <- hobo_rate %>% 
+  group_by(hobo_event_n) %>%
+  dplyr::summarise(TFD_rate_sum_mm = sum(TFD_mm),
+                 TFD_max_rate_mm_hr = max(Rate_TFD_mm, na.rm = TRUE),
+                 TFD_mean_rate_mm_hr = mean(Rate_TFD_mm), na.rm = TRUE)%>% 
+  left_join(TFB_summary, ., by = "hobo_event_n")
+
+
+#Summary
+
+hobo_summary <- TFD_summary
+
+```
+
+```{r}
+
+ ggplot(hobo_only_rates) +
+  geom_line(mapping=
+               aes(x= dt, y= Rates, colour = Observations, group = Observations),
+             size = 1) +
+  labs(x =  "\n Datetime", y= "Rate in mm \n", title = " Time vs.  Rate \n") +
+  theme_bw() + facet_wrap(~ Observations, scales = "free_y", ncol = 2)+#scales optional 
+  theme(legend.position="none") 
+                                                          
+```
 
 #old code related to matlab
 ##X Prepare imported hobo for import to Matlab
@@ -496,6 +741,7 @@ rm(site, hobo, hobo_ml)
 
 
 ```
+
 
 ## Correct matlab output
 ```{r}
