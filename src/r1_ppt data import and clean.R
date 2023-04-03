@@ -82,7 +82,7 @@ tz(ppt_events$datetime_EST2)
 #Now the hourly time series record is filtered with event numbers
   
 
-#2.0 ---- Create summary statistics for each event
+#2.0 Create summary statistics for each event ----
 #use tidy R piping and dplyr::group_by and summarize functions
 
 options(dplyr.summarise.inform = TRUE) #I like to see the feedback
