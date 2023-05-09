@@ -449,6 +449,7 @@ ggplot(hobo_events5 %>% filter(!str_detect(site, "TF"))) +
   geom_line(mapping=aes(x=dt, y= cumyield_mm, fill = site, color = limb))+
   facet_wrap(~hobo_event_n, scales = "free")
 
+
 #save
 saveRDS(hobo_events5, paste0(here, "/output/hobo_events_cleaned.Rds"))
 saveRDS(hobo_events4, paste0(here, "/output/hobo_events_summary.Rds"))
