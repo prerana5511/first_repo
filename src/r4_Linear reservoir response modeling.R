@@ -70,7 +70,8 @@ hobo_events5 <- hobo_events2 %>%
 hobo_events6 <- hobo_events5%>%
   filter(limb == "falling") %>%
   group_by(hobo_event_n,site)%>%
-  mutate(time =  seconds((dt - dt_max_yield_mm)*60))
+  mutate(time =  seconds((dt - dt_max_yield_mm)*60),
+         time2 = time_length(time, unit = "seconds"))
 
 
 hobo_events7 <- hobo_events6 %>% 
@@ -78,14 +79,26 @@ hobo_events7 <- hobo_events6 %>%
                                       is.na(yield_mm.x) ~ 0,
                                     TRUE ~ yield_mm.x)) %>% 
   ungroup() %>% 
-  select(dt, site, hobo_event_n, yield_mm_clean, dt_max_yield_mm,max_yld_mm, time, limb) %>% 
+  select(dt, site, hobo_event_n, yield_mm_clean, dt_max_yield_mm,max_yld_mm, time2, limb) %>% 
   rename("yield_mm" = "yield_mm_clean")
-        
 
-mod_lin <- hobo_events7 %>%
-  mutate(t = time_length(time, unit = "seconds")) %>% 
-  mutate(c = log(max_yld_mm) - log(yield_mm)) %>%
-  mutate(k = c/t) 
+nested_data <- hobo_events7 %>% 
+  group_by(site, hobo_event_n) %>% 
+  nest() %>% 
+  mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x))) %>% 
+  mutate(r = map_dbl(.x = data, .f = ~cor(y= .x$yield_mm, x = .x$time2,
+                                          use = "na.or.complete")),
+         # p = map_dbl(data, ~cor.test(y= .x$yield_mm, x = .x$time2,
+         #                             na.action = "na.exclude")$p.value),
+         m = map_dbl(data, ~lm(yield_mm ~ time2, data = .)$coefficients[[2]]),
+         # b = map_dbl(data, ~lm(mean ~ P_mm_event_calc, data = .)$coefficients[[1]]),
+         r2 = r^2)
+  
+
+# mod_lin <- hobo_events7 %>%
+#   mutate(t = time_length(time, unit = "seconds")) %>% 
+#   mutate(c = log(max_yld_mm) - log(yield_mm)) %>%
+#   mutate(k = c/t) 
 
 #Warning : NaNs produced
 

@@ -145,7 +145,7 @@ ppt_events2 <- ppt_events %>%
   drop_na()
 
 
-#Plot ppt
+#Plot ppt ----
 theme_set(theme_bw())
 ggplot(ppt_events2 %>% filter(str_detect(site, "W9"))) +
   geom_line(mapping=aes(x=datetime_EST2, y= yield_mm, color = site))+
