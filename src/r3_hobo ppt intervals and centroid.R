@@ -38,32 +38,16 @@ all3 <- all2 %>%
   filter(Date >= as_datetime('2018-07-24') & Date <= as_datetime('2018-11-04'))
 
 
-#for visualizing and comparing
 
-all4 <- all3 %>% 
-  pivot_longer(cols = contains("_mm"), names_to = "site", 
-               values_to = "yield_mm") %>% 
-  group_by(site, dt) %>% 
-  arrange(dt)%>% 
-  ungroup()%>% 
-  select(dt, site,  yield_mm)%>%
-  drop_na()
-
-
-
-ggplot(all4)+
-  geom_line(mapping=aes(x= dt, y= yield_mm, colour = site, group = site),
-            linewidth = 1) +
-  labs(x =  "\n Datetime", y= "Yield in mm \n", title = " Time vs. Yield \n") +
-  theme_bw() + facet_wrap(~site, scales = "free_y", ncol = 1)+#scales optional 
-  theme(legend.position="none") 
-
-ggplot( all4, aes(x = dt, y = yield_mm, color = site) ) +
+gg_SFA <- ggplot( all3, aes(x = Date, y = SFA_mm ) ) +
   geom_smooth(se = FALSE, method = "loess", span = .1) +
-  scale_x_continuous( breaks = seq(2018-07-24, 2018-11-03, by = 0.04) )+
-  theme_bw() + facet_wrap(~site, scales = "free_y", ncol = 1)+#scales optional 
+  scale_x_continuous( breaks = seq(2018-07-24, 2018-11-03, by = 0.1) )+
+  theme_bw() + 
   theme(legend.position="none")
 
+SFA_smooth  <-  ggplot_build(gg_SFA)$data[[1]][,c("x","y")] %>%
+  mutate(Date = as_datetime(x)) %>%
+  select(-x)
 
 
 
