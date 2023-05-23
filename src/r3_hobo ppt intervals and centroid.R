@@ -37,17 +37,77 @@ all3 <- all2 %>%
   mutate(Date = lubridate::ymd_hms(dt)) %>%
   filter(Date >= as_datetime('2018-07-24') & Date <= as_datetime('2018-11-04'))
 
+ppt3 <- ppt2%>%
+  pivot_longer(cols = contains("W9"), names_to = "site", 
+               values_to = "yield_mm") %>%
+  group_by(site) %>%
+  mutate(model = loess(yield_mm~Date, span = 0.3)$fitted)
 
 
-gg_SFA <- ggplot( all3, aes(x = Date, y = SFA_mm ) ) +
-  geom_smooth(se = FALSE, method = "loess", span = .1) +
-  scale_x_continuous( breaks = seq(2018-07-24, 2018-11-03, by = 0.1) )+
-  theme_bw() + 
-  theme(legend.position="none")
+hobo_events2 <- hobo_events %>% 
+  pivot_longer(cols = contains("mm"), names_to = "site", 
+               values_to = "yield_mm")%>%
+  mutate(yield_mm_clean = case_when(yield_mm < 0 | 
+                                      is.na(yield_mm) ~ 0,
+                                    TRUE ~ yield_mm)) %>% 
+  ungroup() %>% 
+  select(dt, site, hobo_event_n, yield_mm_clean) %>% 
+  rename("yield_mm" = "yield_mm_clean")
 
-SFA_smooth  <-  ggplot_build(gg_SFA)$data[[1]][,c("x","y")] %>%
+
+
+hobo_events_smooth <- hobo_events2 %>%
+  group_by(site, hobo_event_n) %>%
+  mutate(model = loess(yield_mm~dt, span = 0.1)$fitted)
+  
+  
+gg <- ggplot(all3, aes(x= Date)) +
+  geom_smooth(aes(y= SFA_mm, col= paste0('SFA_mm')), se = FALSE, method = "loess", span = 0.1) +
+  geom_smooth(aes(y= SFB_mm, col= paste0('SFB_mm')), se = FALSE, method = "loess",span = 0.1)+
+  geom_smooth(aes(y= SFC_mm, col= paste0('SFC_mm')), se = FALSE, method = "loess",span = 0.1)+
+  geom_smooth(aes(y= SFB_mm, col= paste0('SFD_mm')), se = FALSE, method = "loess",span = 0.1)+
+  scale_x_continuous( breaks = seq(2018-07-24, 2018-11-03, by = 10) )+
+  theme_bw()
+
+
+
+gg1 <- ggplot(all3, aes(x= Date)) +
+  geom_smooth(aes(y= SFA_mm, col= paste0('SFA_mm')), se = FALSE, method = "loess", span = 0.1) 
+gg2 <- ggplot(all3, aes(x= Date))+ 
+  geom_smooth(aes(y= SFB_mm, col= paste0('SFB_mm')), se = FALSE, method = "loess",span = 0.1)
+gg3<- ggplot(all3, aes(x= Date))+
+  geom_smooth(aes(y= SFC_mm, col= paste0('SFC_mm')), se = FALSE, method = "loess",span = 0.1)
+gg4 <-ggplot(all3, aes(x= Date))+
+  geom_smooth(aes(y= SFB_mm, col= paste0('SFD_mm')), se = FALSE, method = "loess",span = 0.1)
+  scale_x_continuous( breaks = seq(2018-07-24, 2018-11-03, by = 10) )+
+  theme_bw()
+
+
+
+bb <- ggplot_build(gg)
+## extract the right component, just the x/y coordinates
+out <- bb$data[[3]][,c("x","y= SFA_mm")]
+## check
+plot(y~x, data = out)
+
+
+
+SFA_smooth  <-  ggplot_build(gg1)$data[[1]][,c("x","y")] %>%
   mutate(Date = as_datetime(x)) %>%
   select(-x)
+
+SFB_smooth  <-  ggplot_build(gg2)$data[[1]][,c("x","y")] %>%
+  mutate(Date = as_datetime(x)) %>%
+  select(-x)
+
+SFC_smooth  <-  ggplot_build(gg3)$data[[1]][,c("x","y")] %>%
+  mutate(Date = as_datetime(x)) %>%
+  select(-x)
+
+SFD_smooth  <-  ggplot_build(gg4)$data[[1]][,c("x","y")] %>%
+  mutate(Date = as_datetime(x)) %>%
+  select(-x)
+
 
 
 
