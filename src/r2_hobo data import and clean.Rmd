@@ -364,7 +364,48 @@ for (i in 1:length(intervals$hobo_event_n)) {
 tz(hobo_events$dt)
 #Now the hourly time series record is filtered with event numbers
 
-saveRDS(hobo_events, paste0(here, "/output/hobo_events.Rds"))
+hobo_events2 <- hobo_events%>%
+  pivot_longer(cols = contains("_mm"), names_to = "site", 
+               values_to = "yield_mm")%>%
+  group_by(site, dt) %>% 
+  arrange(dt)%>% 
+  ungroup()%>% 
+  select(dt, site,  yield_mm, hobo_event_n)%>%
+  drop_na()
+
+
+
+#normalization to remove negatives----
+
+hobo_norm<- hobo_events2 %>%
+  group_by(site)%>%
+  mutate(yield_norm = yield_mm + abs(min(yield_mm)))%>%
+  select(-yield_mm)%>%
+  rename("yield_mm" = "yield_norm")
+
+
+hobo_norm_wide <- hobo_norm%>%
+   pivot_wider(names_from = "site", values_from = "yield_mm")
+
+#Smoothing----
+
+
+
+hobo_smooth <- hobo_norm_wide %>%
+  mutate(SFA= smoothing(SFA_mm, method = "loess", strength = 0.01))%>%
+  mutate(SFB= smoothing(SFB_mm, method = "loess", strength = 0.01))%>%
+  mutate(SFC= smoothing(SFC_mm, method = "loess", strength = 0.01))%>%
+  mutate(SFD= smoothing(SFD_mm, method = "loess", strength = 0.01))%>%
+  mutate(TFB= smoothing(TFB_mm, method = "loess", strength = 0.01))%>%
+  mutate(TFD= smoothing(TFD_mm, method = "loess", strength = 0.01))%>%
+  select(SFA,SFB,SFC,SFD,TFB,TFD,
+         hobo_event_n,dt)%>%
+  pivot_longer(cols = contains("F"), names_to = "site", 
+               values_to = "yield_mm") %>%
+  group_by(site)%>%
+  ungroup()
+
+saveRDS(hobo_smooth, paste0(here, "/output/hobo_events.Rds"))
 ```
 
 
@@ -377,8 +418,6 @@ hobo_events <- readRDS(paste0(here, "/output/hobo_events.Rds"))
 #convert water level yield (mm) to rates for all sites
 #pivot data long first
 hobo_events2 <- hobo_events %>% 
-  pivot_longer(cols = contains("_mm"), names_to = "site", 
-               values_to = "yield_mm") %>% 
   group_by(site, hobo_event_n) %>% 
   arrange(dt) %>% 
   mutate(rate_mm_5min = yield_mm - lag(yield_mm, order_by = dt),
@@ -455,6 +494,25 @@ saveRDS(hobo_events5, paste0(here, "/output/hobo_events_cleaned.Rds"))
 saveRDS(hobo_events4, paste0(here, "/output/hobo_events_summary.Rds"))
 ```
 
+
+
+#ANOVA
+```{r}
+
+
+anova_cumyield <- aov(event_yld_mm ~ site + as.character(hobo_event_n), data = hobo_event_summary)
+summary(anova_cumyield)
+
+
+anova_max_rate <- aov(max_rate_mm_5min ~ site + as.character(hobo_event_n), data = hobo_event_summary)
+summary(anova_max_rate)
+
+
+anova_mean_rate <- aov(mean_rate_mm_5min ~ site + as.character(hobo_event_n), data = hobo_event_summary)
+summary(anova_mean_rate)
+
+
+```
 
 
 

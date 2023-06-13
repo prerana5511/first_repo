@@ -35,18 +35,18 @@ all2 <- all %>% full_join(., hobo_events, by = join_by(dt)) %>%
 
 all3 <- all2 %>%
   mutate(Date = lubridate::ymd_hms(dt)) %>%
-  filter(Date >= as_datetime('2018-07-24') & Date <= as_datetime('2018-11-04'))
-
+  filter(Date >= as_datetime('2018-07-24') & Date <= as_datetime('2018-11-04'))%>%
+  pivot_wider(names_from = "site", values_from = "yield_mm")
+  
+  
+  
 ppt3 <- ppt2%>%
   pivot_longer(cols = contains("W9"), names_to = "site", 
                values_to = "yield_mm") %>%
-  group_by(site) %>%
-  mutate(model = loess(yield_mm~Date, span = 0.3)$fitted)
+  group_by(site) 
 
 
 hobo_events2 <- hobo_events %>% 
-  pivot_longer(cols = contains("mm"), names_to = "site", 
-               values_to = "yield_mm")%>%
   mutate(yield_mm_clean = case_when(yield_mm < 0 | 
                                       is.na(yield_mm) ~ 0,
                                     TRUE ~ yield_mm)) %>% 
@@ -56,65 +56,10 @@ hobo_events2 <- hobo_events %>%
 
 
 
-hobo_events_smooth <- hobo_events2 %>%
-  group_by(site, hobo_event_n) %>%
-  mutate(model = loess(yield_mm~dt, span = 0.1)$fitted)
-  
-  
-gg <- ggplot(all3, aes(x= Date)) +
-  geom_smooth(aes(y= SFA_mm, col= paste0('SFA_mm')), se = FALSE, method = "loess", span = 0.1) +
-  geom_smooth(aes(y= SFB_mm, col= paste0('SFB_mm')), se = FALSE, method = "loess",span = 0.1)+
-  geom_smooth(aes(y= SFC_mm, col= paste0('SFC_mm')), se = FALSE, method = "loess",span = 0.1)+
-  geom_smooth(aes(y= SFB_mm, col= paste0('SFD_mm')), se = FALSE, method = "loess",span = 0.1)+
-  scale_x_continuous( breaks = seq(2018-07-24, 2018-11-03, by = 10) )+
-  theme_bw()
-
-
-
-gg1 <- ggplot(all3, aes(x= Date)) +
-  geom_smooth(aes(y= SFA_mm, col= paste0('SFA_mm')), se = FALSE, method = "loess", span = 0.1) 
-gg2 <- ggplot(all3, aes(x= Date))+ 
-  geom_smooth(aes(y= SFB_mm, col= paste0('SFB_mm')), se = FALSE, method = "loess",span = 0.1)
-gg3<- ggplot(all3, aes(x= Date))+
-  geom_smooth(aes(y= SFC_mm, col= paste0('SFC_mm')), se = FALSE, method = "loess",span = 0.1)
-gg4 <-ggplot(all3, aes(x= Date))+
-  geom_smooth(aes(y= SFB_mm, col= paste0('SFD_mm')), se = FALSE, method = "loess",span = 0.1)
-  scale_x_continuous( breaks = seq(2018-07-24, 2018-11-03, by = 10) )+
-  theme_bw()
-
-
-
-bb <- ggplot_build(gg)
-## extract the right component, just the x/y coordinates
-out <- bb$data[[3]][,c("x","y= SFA_mm")]
-## check
-plot(y~x, data = out)
-
-
-
-SFA_smooth  <-  ggplot_build(gg1)$data[[1]][,c("x","y")] %>%
-  mutate(Date = as_datetime(x)) %>%
-  select(-x)
-
-SFB_smooth  <-  ggplot_build(gg2)$data[[1]][,c("x","y")] %>%
-  mutate(Date = as_datetime(x)) %>%
-  select(-x)
-
-SFC_smooth  <-  ggplot_build(gg3)$data[[1]][,c("x","y")] %>%
-  mutate(Date = as_datetime(x)) %>%
-  select(-x)
-
-SFD_smooth  <-  ggplot_build(gg4)$data[[1]][,c("x","y")] %>%
-  mutate(Date = as_datetime(x)) %>%
-  select(-x)
-
-
-
-
 #interactive plot 
 
-all_xts <- xts(all3 %>% select(dt, W9_Precipitation_mm, SFA_mm, SFB_mm,
-                               SFC_mm, SFD_mm,TFB_mm,TFD_mm),
+all_xts <- xts(all3 %>% select(dt, W9_Precipitation_mm, SFA, SFB,
+                               SFC, SFD,TFB,TFD),
                order.by=all3$dt)
 
 dygraph(all_xts) %>% dyAxis("y", valueRange = c(-1, 100)) %>% 
@@ -189,16 +134,34 @@ ppt_events2 <- ppt_events %>%
   drop_na()
 
 
+ppt_norm<- ppt_events2 %>%
+  group_by(site)%>%
+  mutate(yield_norm = yield_mm + abs(min(yield_mm)))%>%
+  select(-yield_mm)%>%
+  rename("yield_mm" = "yield_norm")
+
+ppt_norm_wide <- ppt_norm%>%
+  pivot_wider(names_from = "site", values_from = "yield_mm")
+
+#Smoothing----
+
+
+
+ppt_smooth <- ppt_norm_wide %>%
+  mutate(W9_Precipitation= smoothing(W9_Precipitation_mm, method = "loess", strength = 0.07))%>%
+  select(W9_Precipitation,Event,datetime_EST2)%>%
+  pivot_longer(cols = contains("W9"), names_to = "site", 
+               values_to = "yield_mm") %>%
+  group_by(site)%>%
+  ungroup()
+
+
+
 #Plot ppt ----
 theme_set(theme_bw())
-ggplot(ppt_events2 %>% filter(str_detect(site, "W9"))) +
+ggplot(ppt_smooth %>% filter(str_detect(site, "W9"))) +
   geom_line(mapping=aes(x=datetime_EST2, y= yield_mm, color = site))+
   facet_wrap(~Event, scales = "free")
-
-ggplot( ppt_events2 , aes(x = datetime_EST2, y = yield_mm, color = site) ) +
-  geom_smooth(se = FALSE, method = "loess", span = 0.5)+
-  scale_x_continuous( breaks = seq(2018-07-24, 2018-11-03, by = 0.04) )+
-  theme_bw() + facet_wrap(~Event, scales = "free")
 
 
 
@@ -206,6 +169,15 @@ ggplot( ppt_events2 , aes(x = datetime_EST2, y = yield_mm, color = site) ) +
 ppt_event_summary <- ppt_events2 %>% 
   group_by(Event,site) %>% 
   dplyr::summarise(max_yld_mm = max(yield_mm, na.rm=T))
+
+ppt_events_summry2 <- inner_join(ppt_events2, ppt_intervals2,
+                          by = c("Event")) %>%
+  group_by(datetime_interval_EST, event_dur_sec, Event)%>%
+  mutate(event_dur_num = as.numeric(event_dur_sec))%>%
+  summarise(total_yield = sum(yield_mm),
+            event_intensity = total_yield/event_dur_num)
+
+
 
 
 #Join the max rate with the time series to access the time of max for each event
@@ -234,14 +206,11 @@ ppt_events5 <- ppt_events2 %>%
 
 ggplot(ppt_events5) +
   geom_line(mapping=aes(x=datetime_EST2, y= yield_mm,  color = limb))+
-  facet_wrap(~Event, scales = "free")
+  geom_point(mapping=aes(x=datetime_EST2, y= yield_mm,  color = limb))+
+  facet_wrap(~Event, scales = "free")+
+  labs(title="Precipitation (R3)",
+       x ="Datetime", y = "Yield mm")
 
-
-ggplot( ppt_events5 , aes(x = datetime_EST2, y = yield_mm, color = limb) ) +
-  geom_smooth(se = FALSE, method = "loess", span = 5) +
-  scale_x_continuous( breaks = seq(2018-07-24, 2018-11-03, by = 0.04) )+
-  theme_bw() + facet_wrap(~Event, scales = "free")
-assign("last.warning", NULL, envir = baseenv())
 
 
 
@@ -253,8 +222,27 @@ ppt_events6 <-inner_join(ppt_events4, centroid,
                                         end = centroid$meanX,
                                         tz = "EST"),
          time_lag_duration = dseconds(time_lag))%>%
-  select(Event, dt_max_yield_mm,meanX,time_lag,time_lag_duration) %>%
+  select(Event, dt_max_yield_mm,meanX,time_lag,time_lag_duration, yield_mm, max_yld_mm) %>%
   rename("centroid_time" = "meanX")
+
+  
+
+ppt_events7 <- inner_join(ppt_events3, ppt_events6,
+                          by = c("Event")) 
+  
+ggplot(ppt_events7, aes(x= time_lag_duration)) +
+  geom_point(aes(y= yield_mm.x, col= paste0('yield_mm.x'))) +
+  geom_point(aes(y= max_yld_mm.x, col= paste0('max_yld_mm.x')))
+
+
+
+
+ppt_events8 <-inner_join(ppt_events_summry2, ppt_events6,
+                         by = c("Event")) %>%
+  distinct(across(Event),.keep_all = TRUE)
+
+ggplot(ppt_events8, aes(x= time_lag_duration, y= event_intensity)) +
+  geom_point()
 
 
 write_csv(ppt_events6, paste0(here, "/output/time_lag_centroid_peak.csv"))

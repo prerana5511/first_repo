@@ -64,8 +64,6 @@ ppt2 <- ppt %>%
 #create an empty dataframe with same headers
 ppt_events <- slice(ppt2, 0) 
 
-i=1
-rm(i)
 
 for (i in 1:length(intervals$Event_Number)) {
   interval <- ppt2 %>%
@@ -91,18 +89,24 @@ options(dplyr.summarise.inform = TRUE) #I like to see the feedback
 #It helps with troubleshooting and you can always remove old objects
 events_summary <- ppt_events %>% 
   group_by(Event_Number) %>%
-  dplyr::summarise(P_event_mm = sum(W9_Precipitation_mm),
+  dplyr::summarise(P_sum_event_mm = sum(W9_Precipitation_mm),
                  P_max_event_mm_hr = max(W9_Precipitation_mm, na.rm = TRUE),
                  P_mean_event_mm_hr = mean(W9_Precipitation_mm, na.rm = TRUE))%>% 
-  left_join(intervals, ., by = "Event_Number")
+  left_join(intervals, ., by = "Event_Number")%>%
+  pivot_longer(cols = contains("_mm"), names_to = "Event", 
+               values_to = "yield_mm")
 
 
+ggplot(events_summary)+
+  geom_line(aes(x=event_dur_sec, y = yield_mm, colour = Event))+
+  labs(title="Event Summary Precipitation (r1)",
+        x ="Event Duration(s)", y = "Precipitation (mm)")
+  
 
 
 ppt_dt <-  ppt_events %>%
   left_join(events_summary, .,  by = "Event_Number") %>%
   group_by(Event_Number) %>% 
-  # filter(W9_Precipitation_mm != 0 )%>%
   mutate(dt_P_mm_hr_event_max = case_when(P_max_event_mm_hr == W9_Precipitation_mm ~ 
                                             datetime_EST2),
          fract_max_P_event = case_when(P_max_event_mm_hr == W9_Precipitation_mm ~ 
@@ -150,54 +154,6 @@ rm(events,events_summary,events2,interval,intervals,ppt,ppt_dt,ppt_events,ppt2)
 
 
 
-#library(ggplot2)
-
-#p1 <- ggplot(data =  ppt_change)
-#p2 <- p1 + geom_line(aes(x = datetime_EST2,
-#                         y = P_rate,
-#                         color = "blue",
-#                         group = 1 ))
-
-
-#selecting precipitation that are available and greater than zero
-# vec <- c(0, NA)
-# vec
-# ppt <- ppt[! ppt$W9_Precipitation_mm %in% vec,]
-# View(ppt)
-# 
-# 
-# #adding duration in hours
-# ppt3 <- ppt %>%
-#   mutate(Time <- hour(ppt2$datetime_EST) + minute(ppt2$datetime_EST)/60 + second(ppt2$datetime_EST)/3600) 
-  
-
-
-
-#filtering intervals
-
-# ppt_intervals <- slice(ppt, 0)
-# 
-#  i=1
-#  rm(i)
-# 
-#  for (i in 1:length(intervals)) {
-#  final <- ppt %>%
-#      filter(datetime_EST %within% intervals[i]) %>%
-#      mutate(Event_number = events2$Event_Number[i])
-#      
-#   ppt_intervals <- bind_rows(ppt_intervals, final)
-#  }
-#  
-#  tz(ppt_intervals$datetime_EST)
- 
- 
- 
- 
- 
-
-
-
-
 OlsonNames() #valid timezone names 
 # day <- today(tz= "Asia/Kolkata") 
 # str(day)
@@ -211,40 +167,5 @@ OlsonNames() #valid timezone names
 
 
 
-#set working directory
-# setwd("D:/Internship/R/first_repo/Data")
 
-
-
-
-
-#finding working directory
-getwd() #this will now be the same as 'here'
-
-
-#filter
-#events <- W9_Streamflow_Precipitation %>% 
-#              filter(W9_Precipitation_mm != "NA")
-#View(events)
-
-
-max_rate = max(Rate), min_rate = min(Rate)
-
-
-final
-
-
-filter(W9_Precipitation_mm[i] == datetime_EST[i]) %>%
-  filter(W9_Precipitation_mm != "NA")
-group_by(W9_Precipitation_mm) %>%
-  
-  mutate(Rate = W9_Precipitation_mm/Time) %>%
-  
-  mutate(sum_Time[i] <- sum(Time[i])) %>%
-  summarise( Event_dur = seconds_to_period(sum_Time[i]))
-
-
-
-ppt2<- ppt%>% 
-  select(datetime_EST,W9_Precipitation_mm)
   
