@@ -375,42 +375,11 @@ hobo_events2 <- hobo_events%>%
 
 
 
-#normalization to remove negatives----
-
-hobo_norm<- hobo_events2 %>%
-  group_by(site)%>%
-  mutate(yield_norm = yield_mm + abs(min(yield_mm)))%>%
-  select(-yield_mm)%>%
-  rename("yield_mm" = "yield_norm")
-
-
-hobo_norm_wide <- hobo_norm%>%
-   pivot_wider(names_from = "site", values_from = "yield_mm")
-
-#Smoothing----
-
-
-
-hobo_smooth <- hobo_norm_wide %>%
-  mutate(SFA= smoothing(SFA_mm, method = "loess", strength = 0.01))%>%
-  mutate(SFB= smoothing(SFB_mm, method = "loess", strength = 0.01))%>%
-  mutate(SFC= smoothing(SFC_mm, method = "loess", strength = 0.01))%>%
-  mutate(SFD= smoothing(SFD_mm, method = "loess", strength = 0.01))%>%
-  mutate(TFB= smoothing(TFB_mm, method = "loess", strength = 0.01))%>%
-  mutate(TFD= smoothing(TFD_mm, method = "loess", strength = 0.01))%>%
-  select(SFA,SFB,SFC,SFD,TFB,TFD,
-         hobo_event_n,dt)%>%
-  pivot_longer(cols = contains("F"), names_to = "site", 
-               values_to = "yield_mm") %>%
-  group_by(site)%>%
-  ungroup()
-
-saveRDS(hobo_smooth, paste0(here, "/output/hobo_events.Rds"))
+# 
+# saveRDS(hobo_events2, paste0(here, "/output/hobo_events.Rds"))
 ```
 
-
-
-#4.0 Calculate event statistics for each event
+#4.0 Visualization
 ```{r}
 #load time series of just events
 hobo_events <- readRDS(paste0(here, "/output/hobo_events.Rds"))
@@ -429,262 +398,399 @@ hobo_events2 <- hobo_events %>%
   rename("cumyield_mm" = "yield_mm",
          "rate_mm_5min" = "rate_mm_5min_clean")
 
-
 #Plot throughfall
 theme_set(theme_bw())
 ggplot(hobo_events2 %>% filter(str_detect(site, "TF"))) +
   geom_line(mapping=aes(x=dt, y= cumyield_mm, color = site))+
-  facet_wrap(~hobo_event_n, scales = "free")
-ggplot(hobo_events2 %>% filter(str_detect(site, "TF"))) +
-  geom_line(mapping=aes(x=dt, y= rate_mm_5min, color = site))+
   facet_wrap(~hobo_event_n, scales = "free")
 
 #Plot stemflow
 ggplot(hobo_events2 %>% filter(!str_detect(site, "TF"))) +
   geom_line(mapping=aes(x=dt, y= cumyield_mm, color = site))+
   facet_wrap(~hobo_event_n, scales = "free")
+
+
+#normalization to remove negatives----
+
+hobo_norm<- hobo_events2 %>%
+  group_by(site)%>%
+  mutate(yield_norm = rate_mm_5min + abs(min(rate_mm_5min)))%>%
+  select(-rate_mm_5min)%>%
+  rename("yield_mm" = "yield_norm")
+
+
+#Smoothing----
+hobo_events3 <- hobo_norm %>%
+  mutate(roll_yield = rollmean(yield_mm, k = 3, fill = NA, align = "center"))
+
+
+saveRDS(hobo_events3, paste0(here, "/output/hobo_events.Rds"))
+
+
+#Stemflow Rates ----
+#RAW
+ggplot(hobo_events2 %>% filter(str_detect(site, "TF"))) +
+  geom_line(mapping=aes(x=dt, y= rate_mm_5min, color = site))+
+  facet_wrap(~hobo_event_n, scales = "free")
+
+#SMOOTH
+ggplot(hobo_events3 %>% filter(str_detect(site, "TF"))) +
+  geom_line(mapping=aes(x=dt, y= roll_yield, color = site))+
+  facet_wrap(~hobo_event_n, scales = "free")+
+  labs(x ="Datetime", y = "yield rate (smooth)")
+
+
+#Throughfall Rates ----
+#RAW
 ggplot(hobo_events2 %>% filter(!str_detect(site, "TF"))) +
-  # geom_line(mapping=aes(x=dt, y= rate_mm_5min, color = site))+
-  geom_smooth(mapping=aes(x=dt, y= rate_mm_5min, color = site))+
+  geom_line(mapping=aes(x=dt, y= rate_mm_5min, color = site))+
   facet_wrap(~hobo_event_n, scales = "free")
 
+#SMOOTH
+ggplot(hobo_events3 %>% filter(!str_detect(site, "TF"))) +
+  geom_line(mapping=aes(x=dt, y= roll_yield, color = site))+
+  facet_wrap(~hobo_event_n, scales = "free")+
+  labs(x ="Datetime", y = "yield rate (smooth)")
 
-#Calculate event statistics
-hobo_event_summary <- hobo_events2 %>% 
-  group_by(site, hobo_event_n) %>% 
+
+tree_sp_r2 <- hobo_events3%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("SFA_mm","SFC_mm") , names_to = "Sugar",
+               values_to = "Sugar_Maple_mm")%>%
+  pivot_longer(cols = c("SFB_mm","SFD_mm") , names_to = "Yellow",
+               values_to = "Yellow_Birch_mm")%>%
+
+  pivot_longer(cols = c("Yellow_Birch_mm","Sugar_Maple_mm") , names_to = "Stemflow",
+               values_to = "stemflow_yield")%>%
+  pivot_longer(cols = c("TFB_mm","TFD_mm") , names_to = "Throughfall",
+               values_to = "throughfall_yield")%>%
+  select(-cumyield_mm, -yield_mm, -Sugar, -Yellow)
+
+
+stemflow_r2 <- tree_sp_r2%>%
+  filter(!is.na(stemflow_yield))%>%
+  select(-throughfall_yield, -Throughfall)
+
+
+throughfall_r2 <- tree_sp_r2%>%
+  filter(!is.na(throughfall_yield))%>%
+  select(-stemflow_yield, -Stemflow)
+
+
+tr <-hobo_events3%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("SFA_mm","SFC_mm") , names_to = "Sugar",
+               values_to = "Sugar_Maple_mm")%>%
+  pivot_longer(cols = c("SFB_mm","SFD_mm") , names_to = "Yellow",
+               values_to = "Yellow_Birch_mm")%>%
+   pivot_longer(cols = c("TFB_mm","TFD_mm") , names_to = "Throughfall",
+               values_to = "Throughfall_yield")%>%
+  select(dt, Sugar_Maple_mm, Yellow_Birch_mm, Throughfall_yield, hobo_event_n)%>%
+
+  pivot_longer(cols = c("Sugar_Maple_mm", "Throughfall_yield", "Yellow_Birch_mm") , names_to = "flowpath2",
+               values_to = "path_yield_rate")%>%
+  na.omit()
+#   #distinct(across(path_yield_rate), .keep_all = TRUE)
+
+
+mix <-inner_join(stemflow_r2, throughfall_r2,
+                         by = c("dt", "hobo_event_n")) %>%
+  select(-Stemflow, -Throughfall)%>%
+  pivot_longer(cols = c("stemflow_yield","throughfall_yield") , 
+               names_to = "flowpath", values_to = "path_yield_rate")%>%
+  distinct(across(path_yield_rate), .keep_all = TRUE)
+
+
+mix2 <-inner_join(mix, tr,
+                         by = c("dt", "hobo_event_n", "path_yield_rate")) 
+
+
+hobo_event_summary <- mix2 %>% 
+  group_by(flowpath,flowpath2, hobo_event_n) %>% 
+  dplyr::summarise(event_yld_mm = sum(path_yield_rate, na.rm=T),
+                   max_rate_mm_5min = max(path_yield_rate, na.rm = T),
+                   mean_rate_mm_5min = mean(path_yield_rate, na.rm=T))
+
+
+#Stemflow vs Throughfall event stats----
+ggplot( hobo_event_summary) +
+  geom_boxplot(mapping=aes(x=flowpath,y= max_rate_mm_5min)) +
+  geom_jitter(mapping=aes(x=flowpath, y= max_rate_mm_5min, group = flowpath2, colour= flowpath2))
+
+
+ggplot( hobo_event_summary) +
+  geom_boxplot(mapping=aes(x=flowpath,y= mean_rate_mm_5min)) +
+  geom_jitter(mapping=aes(x=flowpath, y= mean_rate_mm_5min, group = flowpath2, colour= flowpath2))
+
+
+ggplot( hobo_event_summary) +
+  geom_boxplot(mapping=aes(x=flowpath,y= event_yld_mm)) +
+  geom_jitter(mapping=aes(x=flowpath, y= event_yld_mm, group = flowpath2, colour= flowpath2))
+
+
+```
+
+
+
+#5.0 Calculate event statistics for Sugar Maple and Yellow Birch
+```{r}
+
+  
+#yellow birch and sugar maple----  
+tr1 <-hobo_events3%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("SFA_mm","SFC_mm") , names_to = "Sugar", 
+               values_to = "Sugar_Maple_mm")%>%
+  pivot_longer(cols = c("SFB_mm","SFD_mm") , names_to = "Yellow", 
+               values_to = "Yellow_Birch_mm")%>%
+  select(Sugar,Sugar_Maple_mm,Yellow, Yellow_Birch_mm, hobo_event_n, dt)
+
+yb <-tr1 %>%
+  select(-Sugar_Maple_mm, -Sugar)
+  
+sm <-tr1 %>%
+  select(-Yellow_Birch_mm, -Yellow)
+
+hobo_event_summary_yb <- yb %>% 
+  group_by(Yellow, hobo_event_n) %>% 
+  dplyr::summarise(event_yld_mm = sum(Yellow_Birch_mm, na.rm=T),
+                   max_rate_mm_5min = max(Yellow_Birch_mm, na.rm = T),
+                   mean_rate_mm_5min = mean(Yellow_Birch_mm, na.rm=T))
+
+hobo_event_summary_sm <- sm %>% 
+  group_by(Sugar, hobo_event_n) %>% 
+  dplyr::summarise(event_yld_mm = sum(Sugar_Maple_mm, na.rm=T),
+                   max_rate_mm_5min = max(Sugar_Maple_mm, na.rm = T),
+                   mean_rate_mm_5min = mean(Sugar_Maple_mm, na.rm=T))
+
+mix3 <- inner_join(sm, yb,
+                         by = c("dt", "hobo_event_n"))%>%
+  pivot_longer(cols = c("Sugar_Maple_mm","Yellow_Birch_mm") , names_to = "Species", 
+               values_to = "Yield_rate")%>%
+  select(-Sugar, -Yellow)%>%
+  na.omit()
+
+stemflow_from_site <- hobo_events3 %>%
+  filter(!str_detect(site, "TF"))%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("SFA_mm","SFB_mm", "SFC_mm", "SFD_mm") , names_to = "stemflow", 
+               values_to = "Yield_rate")%>%
+  na.omit()
+  
+  
+
+
+mix4 <- inner_join(mix3, stemflow_from_site,
+                         by = c("dt", "hobo_event_n","Yield_rate"))%>%
+  select(-cumyield_mm, -yield_mm)
+  
+
+  
+
+hobo_event_summary_SMYB <- mix4 %>% 
+  group_by(Species, stemflow, hobo_event_n) %>% 
+  dplyr::summarise(event_yld_mm = sum(Yield_rate, na.rm=T),
+                   max_rate_mm_5min = max(Yield_rate, na.rm = T),
+                   mean_rate_mm_5min = mean(Yield_rate, na.rm=T))%>%
+  filter(event_yld_mm != 0)
+
+
+#SM vs YB Event Stats ----
+ggplot( hobo_event_summary_SMYB) +
+  geom_boxplot(mapping=aes(x=Species,y= event_yld_mm)) +
+  geom_jitter(mapping=aes(x=Species, y= event_yld_mm, group = stemflow, colour= stemflow))
+
+ggplot( hobo_event_summary_SMYB) +
+  geom_boxplot(mapping=aes(x=Species,y= max_rate_mm_5min)) +
+  geom_jitter(mapping=aes(x=Species, y= max_rate_mm_5min, group = stemflow, colour= stemflow))
+
+ggplot(hobo_event_summary_SMYB) +
+  geom_boxplot(mapping=aes(x=Species,y= mean_rate_mm_5min)) +
+  geom_jitter(mapping=aes(x=Species, y= mean_rate_mm_5min, group = stemflow, colour= stemflow))
+
+
+
+
+throughfall_from_site <- hobo_events3 %>%
+  filter(str_detect(site, "TF"))%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("TFB_mm", "TFD_mm") , names_to = "throughfall", 
+               values_to = "Yield_rate")%>%
+  na.omit()
+  
+
+hobo_event_summary_throughfall <- throughfall_from_site %>% 
+  group_by( hobo_event_n, throughfall) %>% 
+  dplyr::summarise(event_yld_mm = sum(Yield_rate, na.rm=T),
+                   max_rate_mm_5min = max(Yield_rate, na.rm = T),
+                   mean_rate_mm_5min = mean(Yield_rate, na.rm=T))%>%
+  filter(event_yld_mm != 0)
+
+
+
+```
+
+
+#Limbs
+```{r}
+hobo_event_summary2 <- hobo_events3 %>%
+  group_by(site, hobo_event_n) %>%
   dplyr::summarise(event_yld_mm = max(cumyield_mm, na.rm=T),
-                   max_rate_mm_5min = max(rate_mm_5min, na.rm = T),
-                   mean_rate_mm_5min = mean(rate_mm_5min, na.rm=T))
+                   max_rate_mm_5min = max(roll_yield, na.rm = T),
+                   mean_rate_mm_5min = mean(roll_yield, na.rm=T))
 
-#plot
-ggplot(hobo_event_summary %>% filter(!str_detect(site, "TF"))) +
-  geom_col(mapping=aes(x=site, y=event_yld_mm, fill = site)) +
-  facet_wrap(~hobo_event_n, scales = "free")
 
 #Join the max rate with the time series to access the time of max for each event
-hobo_events3 <- inner_join(hobo_events2, hobo_event_summary,
-                          by = c("site", "hobo_event_n",
-                                 "rate_mm_5min" = "max_rate_mm_5min")) %>% 
+
+hobo_events4 <- inner_join(hobo_events3, hobo_event_summary2,
+                           by = c("site", "hobo_event_n")) %>% 
   rownames_to_column()
 
-#manually remove the duplicates
-hobo_events4 <- hobo_events3 %>% 
-  mutate(to_keep = case_when(rowname %in% c(17, 51, 47, 52, 53) ~ FALSE,
-                               TRUE ~ TRUE)) %>% 
-  filter(to_keep) %>% select(-c(rowname, to_keep)) %>% 
-  rename("dt_max_rate_mm_5min" = "dt")
 
 
-hobo_events5 <- hobo_events2 %>% 
-  left_join(., hobo_events4 %>% select(1:3),
+#manually keep the max yield rows and remove the duplicates 
+hobo_events5  <- hobo_events4 %>% 
+  mutate(to_keep1 = case_when(roll_yield < max_rate_mm_5min ~ FALSE,
+                             TRUE ~ TRUE )) %>%
+   mutate(to_keep2 = case_when (rowname %in% c(409,8269,416,422,14492,14498,
+                                               135,8272,1745,8273,12287, 3606, 14562) ~ FALSE,
+                              TRUE ~ TRUE))%>%
+  filter(to_keep1) %>% select(-c( to_keep1)) %>% 
+   filter(to_keep2) %>% select(-c( to_keep2, rowname)) %>%
+  na.omit()%>%
+  rename("dt_max_yield_mm" = "dt")
+
+
+hobo_events6 <- hobo_events3 %>% 
+  left_join(., hobo_events5 %>% select(1:3),
             by = c("site", "hobo_event_n")) %>% 
   group_by(site, hobo_event_n) %>% 
-  mutate(limb = case_when(dt < dt_max_rate_mm_5min ~ "rising",
-                          dt > dt_max_rate_mm_5min ~ "falling",
-                          dt == dt_max_rate_mm_5min ~ "peak")) %>% 
-  select(-dt_max_rate_mm_5min)
+  mutate(limb = case_when(dt < dt_max_yield_mm ~ "rising",
+                          dt > dt_max_yield_mm ~ "falling",
+                          dt== dt_max_yield_mm ~ "peak")) %>% 
+  #select(-dt_max_yield_mm)%>%
+  na.omit()
 
-ggplot(hobo_events5 %>% filter(!str_detect(site, "TF"))) +
-  geom_line(mapping=aes(x=dt, y= cumyield_mm, fill = site, color = limb))+
-  facet_wrap(~hobo_event_n, scales = "free")
+
+hobo_events7 <- hobo_events6%>%
+  mutate(peak = limb == "peak")%>%
+  filter(!str_detect(site, "TF"))
+
+hobo_events8 <- hobo_events7%>%
+  filter(!str_detect(peak, "FALSE"))
+
+ggplot()+
+geom_line(data = hobo_events7, mapping=aes(x=dt, y=roll_yield, colour = site))+
+geom_point(data = hobo_events8, mapping=aes(x=dt, y=roll_yield, colour = limb))+
+  facet_wrap(~hobo_event_n, scales = "free")+
+  labs(title="Stemflow Peaks",
+       x ="Datetime", y = "Yield Rate")
+  
+
+
+hobo_events9 <- hobo_events6%>%
+  mutate(peak = limb == "peak")%>%
+  filter(str_detect(site, "TF"))
+
+hobo_events10 <- hobo_events9%>%
+  filter(!str_detect(peak, "FALSE"))
+
+ggplot()+
+geom_line(data = hobo_events9, mapping=aes(x=dt, y=roll_yield, colour = site))+
+geom_point(data = hobo_events10, mapping=aes(x=dt, y=roll_yield, colour = limb))+
+  facet_wrap(~hobo_event_n, scales = "free")+
+  labs(title="Throughfall Peaks",
+       x ="Datetime", y = "Yield Rate")
+
+
+# ggplot(hobo_events6 %>% filter(!str_detect(site, "TF"))) +
+#   geom_line(mapping=aes(x=dt, y= roll_yield, fill = site, color = limb))+
+#   geom_point(mapping=aes(x=dt, y= roll_yield,  color = limb))+
+#   facet_wrap(~hobo_event_n, scales = "free")
+
+
+hobo_events11 <-hobo_events3%>%
+  na.omit()%>%
+  rename("smooth_yield_rate" = "roll_yield")
 
 
 #save
-saveRDS(hobo_events5, paste0(here, "/output/hobo_events_cleaned.Rds"))
-saveRDS(hobo_events4, paste0(here, "/output/hobo_events_summary.Rds"))
+saveRDS(hobo_events6, paste0(here, "/output/hobo_limbs.Rds"))
+saveRDS(hobo_events11, paste0(here, "/output/hobo_events_cleaned.Rds"))
+saveRDS(hobo_event_summary, paste0(here, "/output/hobo_events_summary.Rds"))
 ```
 
 
 
 #ANOVA
 ```{r}
-
-
-anova_cumyield <- aov(event_yld_mm ~ site + as.character(hobo_event_n), data = hobo_event_summary)
+#TFvsSF
+anova_cumyield <- aov(event_yld_mm ~ flowpath , data = hobo_event_summary)
 summary(anova_cumyield)
 
-
-anova_max_rate <- aov(max_rate_mm_5min ~ site + as.character(hobo_event_n), data = hobo_event_summary)
+anova_max_rate <- aov(max_rate_mm_5min ~ flowpath , data = hobo_event_summary)
 summary(anova_max_rate)
 
-
-anova_mean_rate <- aov(mean_rate_mm_5min ~ site + as.character(hobo_event_n), data = hobo_event_summary)
+anova_mean_rate <- aov(mean_rate_mm_5min ~ flowpath, data = hobo_event_summary)
 summary(anova_mean_rate)
 
 
+#SMvsYB
+# SMYB <- hobo_event_summary %>%
+#   filter(flowpath2 != "Throughfall_yield")
+
+anova_cumyield <- aov(event_yld_mm ~ Species , data = hobo_event_summary_SMYB)
+summary(anova_cumyield)
+
+anova_max_rate <- aov(max_rate_mm_5min ~ Species, data = hobo_event_summary_SMYB)
+summary(anova_max_rate)
+
+anova_mean_rate <- aov(mean_rate_mm_5min ~ Species, data = hobo_event_summary_SMYB)
+summary(anova_mean_rate)
+
+
+
+#YB
+
+anova_cumyield <- aov(event_yld_mm ~ Yellow , data = hobo_event_summary_yb)
+summary(anova_cumyield)
+
+anova_max_rate <- aov(max_rate_mm_5min ~ Yellow , data = hobo_event_summary_yb)
+summary(anova_max_rate)
+
+anova_mean_rate <- aov(mean_rate_mm_5min ~ Yellow, data = hobo_event_summary_yb)
+summary(anova_mean_rate)
+
+
+#SM
+anova_cumyield <- aov(event_yld_mm ~ Sugar , data = hobo_event_summary_sm)
+summary(anova_cumyield)
+
+anova_max_rate <- aov(max_rate_mm_5min ~ Sugar , data = hobo_event_summary_sm)
+summary(anova_max_rate)
+
+anova_mean_rate <- aov(mean_rate_mm_5min ~ Sugar, data = hobo_event_summary_sm)
+summary(anova_mean_rate)
+
+
+
+#TF
+anova_cumyield <- aov(event_yld_mm ~ throughfall , data = hobo_event_summary_throughfall)
+summary(anova_cumyield)
+
+anova_max_rate <- aov(max_rate_mm_5min ~ throughfall , data = hobo_event_summary_throughfall)
+summary(anova_max_rate)
+
+anova_mean_rate <- aov(mean_rate_mm_5min ~ throughfall, data = hobo_event_summary_throughfall)
+summary(anova_mean_rate)
+
+
+
 ```
 
 
 
-```{r}
-#SFA ----
-# 
-# hobo_rate_SFA <- hobo_events %>%
-#   mutate(.after = SFA_mm, #indicates where the new column is placed
-#          Previous_SFA_mm  = lag(hobo_events$SFA_mm),
-#          Change_SFA_mm = (hobo_events$SFA_mm)-Previous_SFA_mm ,
-#          Rate_SFA_mm  = Change_SFA_mm /Previous_SFA_mm ) %>%
-#   select(-Previous_SFA_mm , -Change_SFA_mm)
-# 
-# #hobo_rate <- hobo_rate_SFA %>% full_join(., hobo_events)
-# 
-# 
-# #SFB
-# 
-# hobo_rate_SFB <- hobo_rate_SFA %>%
-#   mutate(.after = SFB_mm, #indicates where the new column is placed
-#          Previous_SFB_mm  = lag(hobo_events$SFB_mm),
-#          Change_SFB_mm = (hobo_events$SFB_mm)-Previous_SFB_mm ,
-#          Rate_SFB_mm  = Change_SFB_mm /Previous_SFB_mm ) %>%
-#   select(-Previous_SFB_mm , -Change_SFB_mm)
-# 
-# 
-# #hobo_rate <- hobo_rate_SFB %>% full_join(., hobo_rate_SFA)
-# 
-# #SFC
-# 
-# hobo_rate_SFC <- hobo_rate_SFB %>%
-#   mutate(.after = SFC_mm, #indicates where the new column is placed
-#          Previous_SFC_mm  = lag(hobo_events$SFC_mm),
-#          Change_SFC_mm = (hobo_events$SFC_mm)-Previous_SFC_mm ,
-#          Rate_SFC_mm  = Change_SFC_mm /Previous_SFC_mm ) %>%
-#   select(-Previous_SFC_mm , -Change_SFC_mm)
-# 
-# 
-# 
-# #SFD
-# 
-# hobo_rate_SFD <- hobo_rate_SFC %>%
-#   mutate(.after = SFD_mm, #indicates where the new column is placed
-#          Previous_SFD_mm  = lag(hobo_events$SFD_mm),
-#          Change_SFD_mm = (hobo_events$SFD_mm)-Previous_SFD_mm ,
-#          Rate_SFD_mm  = Change_SFD_mm /Previous_SFD_mm ) %>%
-#   select(-Previous_SFD_mm , -Change_SFD_mm)
-# 
-# 
-# 
-# #TFB
-# 
-# hobo_rate_TFB <- hobo_rate_SFD %>%
-#   mutate(.after = TFB_mm, #indicates where the new column is placed
-#          Previous_TFB_mm  = lag(hobo_events$TFB_mm),
-#          Change_TFB_mm = (hobo_events$TFB_mm)-Previous_TFB_mm ,
-#          Rate_TFB_mm  = Change_TFB_mm /Previous_TFB_mm ) %>%
-#   select(-Previous_TFB_mm , -Change_TFB_mm)
-# 
-# 
-# #TFD
-# 
-# hobo_rate_TFD <- hobo_rate_TFB %>%
-#   mutate(.after = TFD_mm, #indicates where the new column is placed
-#          Previous_TFD_mm  = lag(hobo_events$TFD_mm),
-#          Change_TFD_mm = (hobo_events$TFD_mm)-Previous_TFD_mm ,
-#          Rate_TFD_mm  = Change_TFD_mm /Previous_TFD_mm ) %>%
-#   select(-Previous_TFD_mm , -Change_TFD_mm)
-# 
-# 
-# hobo_rate <- hobo_rate_TFD %>%
-#   select(-dt2)
-# 
-# hobo_only_rates <-hobo_rate %>%
-#   
-#   select(dt, hobo_event_n, Rate_SFA_mm, Rate_SFB_mm, Rate_SFC_mm, Rate_SFD_mm,
-#          Rate_TFB_mm, Rate_TFD_mm)%>%
-#   mutate(across(starts_with("Rate"), as.character)) %>%
-#   pivot_longer(3:8, names_to = "Observations",
-#                values_to = "Rates") %>%
-#   arrange(hobo_event_n, dt, Observations, Rates) %>%
-#   group_by(hobo_event_n) %>%
-#   drop_na() %>%
-#   ungroup %>%
-# #  pivot_wider(id_cols =  Observations)%>%
-#   mutate(across(starts_with("Rate"), as.numeric))
-         
-```
 
-```{r}
-# Create summary statistics for each event
-
-#SFA
-
-SFA_summary <- hobo_rate %>% 
-  group_by(hobo_event_n) %>%
-  dplyr::summarise(SFA_rate_sum_mm = sum(SFA_mm),
-                 SFA_max_rate_mm_hr = max(Rate_SFA_mm, na.rm = TRUE),
-                 SFA_mean_rate_mm_hr = mean(Rate_SFA_mm), na.rm = TRUE)%>% 
-  left_join(intervals, ., by = "hobo_event_n")
-
-
-
-#SFB
-
-SFB_summary <- hobo_rate %>% 
-  group_by(hobo_event_n) %>%
-  dplyr::summarise(SFB_rate_sum_mm = sum(SFB_mm),
-                 SFB_max_rate_mm_hr = max(Rate_SFB_mm, na.rm = TRUE),
-                 SFB_mean_rate_mm_hr = mean(Rate_SFB_mm), na.rm = TRUE)%>% 
-  left_join(SFA_summary, ., by = "hobo_event_n")
-
-
-
-#SFC
-
-SFC_summary <- hobo_rate %>% 
-  group_by(hobo_event_n) %>%
-  dplyr::summarise(SFC_rate_sum_mm = sum(SFC_mm),
-                 SFC_max_rate_mm_hr = max(Rate_SFC_mm, na.rm = TRUE),
-                 SFC_mean_rate_mm_hr = mean(Rate_SFC_mm), na.rm = TRUE)%>% 
-  left_join(SFB_summary, ., by = "hobo_event_n")
-
-
-
-#SFD
-
-SFD_summary <- hobo_rate %>% 
-  group_by(hobo_event_n) %>%
-  dplyr::summarise(SFD_rate_sum_mm = sum(SFD_mm),
-                 SFD_max_rate_mm_hr = max(Rate_SFD_mm, na.rm = TRUE),
-                 SFD_mean_rate_mm_hr = mean(Rate_SFD_mm), na.rm = TRUE)%>% 
-  left_join(SFC_summary, ., by = "hobo_event_n")
-
-
-#TFB
-
-TFB_summary <- hobo_rate %>% 
-  group_by(hobo_event_n) %>%
-  dplyr::summarise(TFB_rate_sum_mm = sum(TFB_mm),
-                 TFB_max_rate_mm_hr = max(Rate_TFB_mm, na.rm = TRUE),
-                 TFB_mean_rate_mm_hr = mean(Rate_TFB_mm), na.rm = TRUE)%>% 
-  left_join(SFD_summary, ., by = "hobo_event_n")
-
-
-#TFD
-
-TFD_summary <- hobo_rate %>% 
-  group_by(hobo_event_n) %>%
-  dplyr::summarise(TFD_rate_sum_mm = sum(TFD_mm),
-                 TFD_max_rate_mm_hr = max(Rate_TFD_mm, na.rm = TRUE),
-                 TFD_mean_rate_mm_hr = mean(Rate_TFD_mm), na.rm = TRUE)%>% 
-  left_join(TFB_summary, ., by = "hobo_event_n")
-
-
-#Summary
-
-hobo_summary <- TFD_summary
-
-```
-
-```{r}
-
- ggplot(hobo_only_rates) +
-  geom_line(mapping=
-               aes(x= dt, y= Rates, colour = Observations, group = Observations),
-             size = 1) +
-  labs(x =  "\n Datetime", y= "Rate in mm \n", title = " Time vs.  Rate \n") +
-  theme_bw() + facet_wrap(~ Observations, scales = "free_y", ncol = 2)+#scales optional 
-  theme(legend.position="none") 
-                                                          
-```
 
 
 

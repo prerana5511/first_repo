@@ -58,8 +58,8 @@ hobo_events2 <- hobo_events %>%
 
 #interactive plot 
 
-all_xts <- xts(all3 %>% select(dt, W9_Precipitation_mm, SFA, SFB,
-                               SFC, SFD,TFB,TFD),
+all_xts <- xts(all3 %>% select(dt, W9_Precipitation_mm, SFA_mm, SFB_mm,
+                               SFC_mm, SFD_mm,TFB_mm,TFD_mm),
                order.by=all3$dt)
 
 dygraph(all_xts) %>% dyAxis("y", valueRange = c(-1, 100)) %>% 
@@ -123,51 +123,22 @@ centroid<-ppt_events %>%
 
 
 #pivot data long for facetwrap
-ppt_events2 <- ppt_events %>% 
-  
-  pivot_longer(cols = contains("_mm"), names_to = "site", 
-               values_to = "yield_mm") %>% 
-  group_by(site, Event) %>% 
-  arrange(datetime_EST2) %>% 
-  ungroup() %>% 
+ppt_events2 <- ppt_events %>%
+
+  pivot_longer(cols = contains("_mm"), names_to = "site",
+               values_to = "yield_mm") %>%
+  group_by(site, Event) %>%
+  arrange(datetime_EST2) %>%
+  ungroup() %>%
   select(datetime_EST2, site, Event, yield_mm) %>%
   drop_na()
 
-
-ppt_norm<- ppt_events2 %>%
-  group_by(site)%>%
-  mutate(yield_norm = yield_mm + abs(min(yield_mm)))%>%
-  select(-yield_mm)%>%
-  rename("yield_mm" = "yield_norm")
-
-ppt_norm_wide <- ppt_norm%>%
-  pivot_wider(names_from = "site", values_from = "yield_mm")
-
-#Smoothing----
-
-
-
-ppt_smooth <- ppt_norm_wide %>%
-  mutate(W9_Precipitation= smoothing(W9_Precipitation_mm, method = "loess", strength = 0.07))%>%
-  select(W9_Precipitation,Event,datetime_EST2)%>%
-  pivot_longer(cols = contains("W9"), names_to = "site", 
-               values_to = "yield_mm") %>%
-  group_by(site)%>%
-  ungroup()
-
-
-
-#Plot ppt ----
-theme_set(theme_bw())
-ggplot(ppt_smooth %>% filter(str_detect(site, "W9"))) +
-  geom_line(mapping=aes(x=datetime_EST2, y= yield_mm, color = site))+
-  facet_wrap(~Event, scales = "free")
 
 
 
 #Calculate event statistics
 ppt_event_summary <- ppt_events2 %>% 
-  group_by(Event,site) %>% 
+  group_by(Event, site) %>% 
   dplyr::summarise(max_yld_mm = max(yield_mm, na.rm=T))
 
 ppt_events_summry2 <- inner_join(ppt_events2, ppt_intervals2,
@@ -176,6 +147,7 @@ ppt_events_summry2 <- inner_join(ppt_events2, ppt_intervals2,
   mutate(event_dur_num = as.numeric(event_dur_sec))%>%
   summarise(total_yield = sum(yield_mm),
             event_intensity = total_yield/event_dur_num)
+
 
 
 
@@ -214,38 +186,85 @@ ggplot(ppt_events5) +
 
 
 
-#time lag calculation
 
-ppt_events6 <-inner_join(ppt_events4, centroid,
-                         by = c("Event")) %>%
-  mutate(time_lag = lubridate::interval(start = ppt_events4$dt_max_yield_mm,
-                                        end = centroid$meanX,
+
+hobo_events_limbs_r3<- readRDS(paste0(here, "/output/hobo_limbs.Rds"))%>%
+  filter(limb == "peak")%>%
+  rename("Event" = "hobo_event_n")%>%
+  rownames_to_column()%>%
+  mutate(to_keep = case_when (rowname %in% c(26,53,54,27, 28) ~ FALSE,
+                               TRUE ~ TRUE))%>%
+  filter(to_keep) %>% select(-c( to_keep, rowname))
+
+
+
+
+
+SF <- hobo_events_limbs_r3%>%
+  filter(!str_detect(site, "TF"))%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("SFA_mm","SFC_mm") , names_to = "Sugar", 
+               values_to = "Sugar_Maple_mm")%>%
+  pivot_longer(cols = c("SFB_mm","SFD_mm") , names_to = "Yellow", 
+               values_to = "Yellow_Birch_mm")%>%
+  pivot_longer(cols = c("Sugar_Maple_mm","Yellow_Birch_mm") , names_to = "Stemflow", 
+               values_to = "Stemflow_yield")%>%
+  select(-Sugar, -Yellow)%>%
+  distinct(across(Stemflow_yield), .keep_all = TRUE)%>%
+  na.omit()
+
+
+
+TF <- hobo_events_limbs_r3%>%
+  filter(str_detect(site, "TF"))%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("TFB_mm","TFD_mm") , names_to = "throughfall", 
+               values_to = "throughfall_yield")%>%
+  #select(-TFB_mm, -Yellow)%>%
+  #distinct(across(throughfall_yield), .keep_all = TRUE)%>%
+  na.omit()
+
+
+
+
+Flowpath <-hobo_events_limbs_r3%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("SFA_mm","SFC_mm") , names_to = "Sugar", 
+               values_to = "Sugar_Maple_mm")%>%
+  pivot_longer(cols = c("SFB_mm","SFD_mm") , names_to = "Yellow", 
+               values_to = "Yellow_Birch_mm")%>%
+  pivot_longer(cols = c("TFB_mm","TFD_mm") , names_to = "Throughfall", 
+               values_to = "Throughfall_yield")%>%
+  select(dt, Sugar_Maple_mm, Yellow_Birch_mm, Throughfall_yield, Event, dt_max_yield_mm,dt)%>%
+  pivot_longer(cols = c("Sugar_Maple_mm", "Throughfall_yield", "Yellow_Birch_mm") , names_to = "site", 
+               values_to = "path_yield_rate")%>%
+  distinct(across(path_yield_rate), .keep_all = TRUE)%>%
+  na.omit()
+  
+
+#Time lag calculation
+time_lag_cal_Flowpath <-inner_join(Flowpath , centroid,
+                              by = c("Event")) %>%
+  mutate(time_lag = lubridate::interval(start = dt_max_yield_mm,
+                                        end = meanX,
                                         tz = "EST"),
          time_lag_duration = dseconds(time_lag))%>%
-  select(Event, dt_max_yield_mm,meanX,time_lag,time_lag_duration, yield_mm, max_yld_mm) %>%
+  #select(Event, dt_max_yield_mm,meanX,time_lag,time_lag_duration, yield_mm, max_yld_mm) %>%
   rename("centroid_time" = "meanX")
 
-  
 
-ppt_events7 <- inner_join(ppt_events3, ppt_events6,
-                          by = c("Event")) 
-  
-ggplot(ppt_events7, aes(x= time_lag_duration)) +
-  geom_point(aes(y= yield_mm.x, col= paste0('yield_mm.x'))) +
-  geom_point(aes(y= max_yld_mm.x, col= paste0('max_yld_mm.x')))
-
-
-
-
-ppt_events8 <-inner_join(ppt_events_summry2, ppt_events6,
+ppt_events7 <-inner_join(ppt_events_summry2, time_lag_cal_Flowpath,
                          by = c("Event")) %>%
+  group_by(site, Event)%>%
   distinct(across(Event),.keep_all = TRUE)
 
-ggplot(ppt_events8, aes(x= time_lag_duration, y= event_intensity)) +
+ggplot(ppt_events7, aes(x= time_lag_duration, y= event_intensity, colour = site)) +
   geom_point()
 
 
-write_csv(ppt_events6, paste0(here, "/output/time_lag_centroid_peak.csv"))
+
+
+write_csv(ppt_events7, paste0(here, "/output/time_lag_centroid_peak.csv"))
 
 
 
