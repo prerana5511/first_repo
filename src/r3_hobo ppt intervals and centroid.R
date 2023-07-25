@@ -245,8 +245,8 @@ Flowpath <-hobo_events_limbs_r3%>%
 #Time lag calculation
 time_lag_cal_Flowpath <-inner_join(Flowpath , centroid,
                               by = c("Event")) %>%
-  mutate(time_lag = lubridate::interval(start = dt_max_yield_mm,
-                                        end = meanX,
+  mutate(time_lag = lubridate::interval(start = meanX,
+                                        end = dt_max_yield_mm,
                                         tz = "EST"),
          time_lag_duration = dseconds(time_lag))%>%
   #select(Event, dt_max_yield_mm,meanX,time_lag,time_lag_duration, yield_mm, max_yld_mm) %>%
