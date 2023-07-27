@@ -63,10 +63,13 @@ tz(hobo_SFA_events $dt)
 
 
 SFA_xts <- xts(hobo_SFA_events %>% select(dt, yield_mm), order.by=hobo_SFA_events$dt)
-dygraph(SFA_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+dygraph(SFA_xts) %>% #dyAxis("y", valueRange = c(-1, 1)) %>%
+  # dyOptions(connectSeparatedPoints = FALSE)%>%
+  dygraphs::dyOptions(drawPoints = T, strokeWidth = 0, pointSize = 5)%>%
   dyRangeSelector()
 
+#connect separated points
 
-# getApi(x, k = 0.9, n = 5, finite = TRUE)
+ getApi(x, k = 0.9, n = 5, finite = TRUE)
 
 
