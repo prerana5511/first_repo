@@ -21,7 +21,7 @@ library(fs)
 library(xts)
 library(dygraphs)
 library(readxl)
-library(ggplot2)
+#library(ggplot2)
 library(scales)
 
 

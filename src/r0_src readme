@@ -1,0 +1,13 @@
+r1_ppt data import and clean.R - practice code for filtering time series using the sampled collectors from previous studies (~20)
+  input: precip record and previous event delineations
+  output: precipiation event summary stats; W9_Ppt_eventsummary_file
+r2_hobo data import and clean.Rmd - imports hobo records and filter on manual selected hobo events (9). Visual exploration of data, normalization, smoothing.
+  input: hobo records
+  output: stemflow and throughfall event stats per site
+r3_hobo ppt intervals and centroid.R - calculates precipitation centroid and max yield of each hobo response
+  output: time_lag_centroid_peak.csv
+r4_Linear reservoir response modeling.R
+  input: hobo time series that has been filtered for events, and smoothed
+  linear model results and ANOVA stats
+r5_new events.R
+  input: 
