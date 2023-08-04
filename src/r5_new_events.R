@@ -12,16 +12,11 @@ library(scales)
 
 
 hobo_events <- readRDS(paste0(here, "/output/hobo_events.Rds"))
-# SFA <- hobo_events%>%
-#   filter(site == "SFA_mm") 
 
-# SFA_events <- readxl::read_excel(paste0(here, "/data/SFA.xlsx"))
-# tz(SFA_events$Start_dt_EST) #imported time zone is UTC
-# sapply(SFA_events, class)
 
 #to avoid weird issues with Excel formating, use csv for importing. 
 #Example csv I created quickly
-curve_intervals <- read_csv(paste0(here, "/data/hobo_new_kar.csv"))
+curve_intervals <- read_csv(paste0(here, "/data/hobo_new_utf.csv"))
 tz(curve_intervals$Start_dt_EST)
 curve_intervals2 <- curve_intervals %>% 
   mutate(across(.cols = lubridate::is.POSIXct,
@@ -33,33 +28,17 @@ curve_intervals2 <- curve_intervals %>%
          event_dur_sec = dseconds(datetime_interval_EST))
 tz(curve_intervals2$Start_dt_EST)
 sapply(curve_intervals2, class)
-# SFA_events2 <- SFA_events %>% 
-#   mutate(across(.cols = lubridate::is.POSIXct,
-#                 ~ lubridate::force_tz(., tzone='EST'))) %>% 
-#   mutate(.after = End_dt_EST,
-#          datetime_interval_EST = lubridate::interval(start = Start_dt_EST,
-#                                                      end = End_dt_EST,
-#                                                      tz = "EST"),
-#          event_dur_sec = dseconds(datetime_interval_EST))
-
-
-
-# class(SFA_events2$datetime_interval_EST)
-# tz(SFA_events2$datetime_interval_EST) #timezone of interval gives an error
-# tz(SFA_events2$Start_dt_EST) #timezone of start is EST
-   
-
-#To check the interval is in EST, we can pull out the start
-# start <- int_start(SFA_events2$datetime_interval_EST[1])
-# class(start)
-# tz(start)
 
 #Filter out multiple intervals 
 
 #edit site ids to match
 hobo_events2 <- hobo_events %>%
   mutate(site = case_when(site == "SFA_mm" ~ "SF-A",
-                          site == "SFB_mm" ~ "SF-B"))
+                          site == "SFB_mm" ~ "SF-B",
+                          site == "SFC_mm" ~ "SF-C",
+                          site == "SFD_mm" ~ "SF-D",
+                          site == "TFB_mm" ~ "TF-B",
+                          site == "TFD_mm" ~ "TF-D"))
 
 #get list of site names to loop through
 sites <- unique(curve_intervals2$site)
@@ -83,12 +62,6 @@ for(i in sites) {
 #Check and correct timezone
 tz(hobo_events_new$dt)
 
-
-# SFA_xts <- xts(hobo_SFA_events %>% select(dt, yield_mm), order.by=hobo_SFA_events$dt)
-# dygraph(SFA_xts) %>% #dyAxis("y", valueRange = c(-1, 1)) %>%
-#   # dyOptions(connectSeparatedPoints = FALSE)%>%
-#   dygraphs::dyOptions(drawPoints = T, strokeWidth = 0, pointSize = 5)%>%
-#   dyRangeSelector()
 
 xts <- xts(hobo_events_new %>% select(dt, yield_mm), order.by=hobo_events_new$dt)
 dygraph(xts) %>% #dyAxis("y", valueRange = c(-1, 1)) %>%
@@ -150,7 +123,8 @@ ppt_api <- ppt %>%
   mutate(api_24hr = getApi(W9_Precipitation_mm, k = 0.9, n = 24, finite = TRUE),
          api_10d = getApi(W9_Precipitation_mm, k = 0.9, n = 24*10, finite = TRUE),
          api_30d = getApi(W9_Precipitation_mm, k = 0.9, n = 24*30, finite = TRUE),
-         api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))
+         api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))%>%
+  select(-datetime_EST)
 
 ggplot(ppt_api) +
   geom_line(mapping = aes(x=datetime_EST2, y=api_24hr)) +
@@ -162,3 +136,60 @@ ggplot(ppt_api) +
 
 #Next steps: Calculate API as I've done above using daily precipitation 
 #Generate a table of the average hourly API for each of the 9 events and the average daily API for each event
+
+#understand the double for loop and do it to get the api
+
+
+daily_ppt <- ppt %>%
+  mutate(date = as.Date(datetime_EST2))%>%
+  group_by(date)%>%
+  nest()%>%
+  mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
+  mutate(data = map(data, ~summarise(.x, across(where(is.numeric), sum))))%>%
+  unnest_wider(data) %>% 
+  ungroup()%>%
+  mutate(date = as.POSIXct(date))
+
+sapply(daily_ppt, class)
+
+daily_ppt_api <- daily_ppt %>% 
+  mutate(api_1d = getApi(W9_Precipitation_mm, k = 0.9, n=1, finite = TRUE),
+         api_10d = getApi(W9_Precipitation_mm, k = 0.9, n = 10, finite = TRUE),
+         api_30d = getApi(W9_Precipitation_mm, k = 0.9, n = 30, finite = TRUE),
+         api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))
+
+
+API_events <- slice(daily_ppt_api, 0) 
+
+
+
+for (i in 1:length(curve_intervals2$event_n)) {
+  interval <- daily_ppt_api %>%
+    filter(date%within% curve_intervals2$datetime_interval_EST[i]) %>% 
+    mutate(event_n = curve_intervals2$event_n[i])%>%
+    mutate(recession_n = curve_intervals2$recession_n[i])
+  
+  
+  
+  API_events  <- bind_rows(API_events , interval)
+}
+
+
+
+
+
+# ppt_events_r5 <- slice(ppt, 0) 
+# 
+# 
+# 
+# for (i in 1:length(curve_intervals2$event_n)) {
+#   interval <- ppt %>%
+#     filter(datetime_EST2 %within% curve_intervals2$datetime_interval_EST[i]) %>% 
+#     mutate(event_n = curve_intervals2$event_n[i])%>%
+#     mutate(recession_n = curve_intervals2$recession_n[i])
+#   
+#   
+#   
+#   ppt_events_r5 <- bind_rows(ppt_events_r5, interval)
+# }
+
