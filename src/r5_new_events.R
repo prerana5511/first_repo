@@ -140,6 +140,7 @@ ggplot(ppt_api) +
 #understand the double for loop and do it to get the api
 
 
+#Daily API
 daily_ppt <- ppt %>%
   mutate(date = as.Date(datetime_EST2))%>%
   group_by(date)%>%
@@ -159,9 +160,8 @@ daily_ppt_api <- daily_ppt %>%
          api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))
 
 
-API_events <- slice(daily_ppt_api, 0) 
-
-
+#Filtering daily API events
+daily_API_events <- slice(daily_ppt_api, 0) 
 
 for (i in 1:length(curve_intervals2$event_n)) {
   interval <- daily_ppt_api %>%
@@ -169,27 +169,101 @@ for (i in 1:length(curve_intervals2$event_n)) {
     mutate(event_n = curve_intervals2$event_n[i])%>%
     mutate(recession_n = curve_intervals2$recession_n[i])
   
+  daily_API_events  <- bind_rows(daily_API_events , interval)
+}
+
+
+#Average hourly API per day
+Avg_API_hourly<- daily_API_events%>%
+  mutate(avg_api_hourly = api_1d/nobs)
   
+
+#Monthly API events
+monthly_ppt <- daily_API_events%>%
+  select(date, W9_Precipitation_mm)%>%
+  mutate(date = as.Date(date))%>%
+  mutate(month =  format(as.Date(date, format="%d/%m/%Y"),"%Y-%m"))%>% 
+  group_by(month)%>%
+  nest()%>%
+  mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
+  mutate(data = map(data, ~summarise(.x, across(where(is.numeric), sum))))%>%
+  unnest_wider(data) %>% 
+  ungroup()
+  
+monthly_ppt_api <- monthly_ppt %>% 
+  mutate(api_1m = getApi(W9_Precipitation_mm, k = 0.9, n=1, finite = TRUE),
+         api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))
+
+sapply(monthly_ppt, class)
+
+#Average Daily API per month
+Avg_API_daily<- monthly_ppt_api%>%
+  mutate(avg_api_1m_daily = api_1m/nobs)
+
+
+
+#Filtering recession curves from raw hourly API
+API_events <- slice(ppt_api, 0) 
+
+for (i in 1:length(curve_intervals2$event_n)) {
+  interval <- ppt_api %>%
+    filter(datetime_EST2%within% curve_intervals2$datetime_interval_EST[i]) %>% 
+    mutate(event_n = curve_intervals2$event_n[i])%>%
+    mutate(recession_n = curve_intervals2$recession_n[i])
   
   API_events  <- bind_rows(API_events , interval)
 }
 
 
+ggplot(API_events) +
+  geom_line(mapping = aes(x=datetime_EST2, y=api_24hr)) +
+  geom_line(mapping = aes(x=datetime_EST2, y=api_10d), color = "blue") +
+  geom_line(mapping = aes(x=datetime_EST2, y=api_30d), color = "green") +
+  geom_line(mapping = aes(x=datetime_EST2, y=api_inf), color = "red")
 
 
+sapply(API_events, class)
 
-# ppt_events_r5 <- slice(ppt, 0) 
-# 
-# 
-# 
-# for (i in 1:length(curve_intervals2$event_n)) {
-#   interval <- ppt %>%
-#     filter(datetime_EST2 %within% curve_intervals2$datetime_interval_EST[i]) %>% 
-#     mutate(event_n = curve_intervals2$event_n[i])%>%
-#     mutate(recession_n = curve_intervals2$recession_n[i])
-#   
-#   
-#   
-#   ppt_events_r5 <- bind_rows(ppt_events_r5, interval)
-# }
 
+#Log linear curves for 24hr, 10days, 30days and infinity API
+nested_API <- API_events %>%
+  mutate(time = as.numeric(datetime_EST2))%>%
+  group_by(recession_n) %>%
+  nest() %>%
+  mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
+  mutate(r_24h = map_dbl(.x = data, .f = ~cor(y=.x$api_24hr, x = .x$time,
+                                          use = "na.or.complete")),
+         m_24h = map_dbl(data, ~lm(api_24hr~ time, data = .)$coefficients[[2]]),
+         i_24h = map_dbl(data, ~lm(api_24hr ~ time, data = .)$coefficients[[1]]),
+         r_24h_sqr = r_24h^2)%>%
+  mutate(r_10d = map_dbl(.x = data, .f = ~cor(y=.x$api_10d, x = .x$time,
+                                          use = "na.or.complete")),
+         m_10d = map_dbl(data, ~lm(api_10d ~ time, data = .)$coefficients[[2]]),
+         i_10d = map_dbl(data, ~lm(api_10d  ~ time, data = .)$coefficients[[1]]),
+         r_10d_sqr = r_10d^2)%>%
+  mutate(r_30d = map_dbl(.x = data, .f = ~cor(y=.x$api_30d, x = .x$time,
+                                          use = "na.or.complete")),
+         m_30d = map_dbl(data, ~lm(api_30d ~ time, data = .)$coefficients[[2]]),
+         i_30d = map_dbl(data, ~lm(api_30d  ~ time, data = .)$coefficients[[1]]),
+         r_30d_sqr = r_30d^2)%>%
+  mutate(r_inf = map_dbl(.x = data, .f = ~cor(y=.x$api_inf, x = .x$time,
+                                              use = "na.or.complete")),
+         m_inf = map_dbl(data, ~lm(api_inf ~ time, data = .)$coefficients[[2]]),
+         i_inf = map_dbl(data, ~lm(api_inf  ~ time, data = .)$coefficients[[1]]),
+         r_inf_sqr = r_inf^2)%>%
+  ungroup()
+
+
+#Joining the cumulative hobo events and log linear curve data of APIs
+all_events<-inner_join(hobo_events_new, nested_API,
+                    by = c( "recession_n"))
+  
+#Visualizing cumulative hobo yield per event with the r values of the respective 
+#log linear curves of APIs
+ggplot(all_events) +
+  geom_line(mapping = aes(x=dt, y=yield_mm)) +
+  geom_line(mapping = aes(x=dt, y=r_24h), color = "yellow") +
+  geom_line(mapping = aes(x=dt, y=r_10d), color = "blue") +
+  geom_line(mapping = aes(x=dt, y=r_30d), color = "green") +
+  geom_line(mapping = aes(x=dt, y=r_inf), color = "red")+
+  facet_wrap(~ hobo_event_n, scales = "free")
