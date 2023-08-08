@@ -26,7 +26,7 @@ curve_intervals2 <- curve_intervals %>%
                                                      end = End_dt_EST,
                                                      tz = "EST"),
          event_dur_sec = dseconds(datetime_interval_EST))
-tz(curve_intervals2$Start_dt_EST)
+# tz(curve_intervals2$datetime_interval_EST)
 sapply(curve_intervals2, class)
 
 #Filter out multiple intervals 
@@ -58,7 +58,7 @@ for(i in sites) {
   hobo_events_new <- bind_rows(hobo_events_new, interval)
 }
 }
-
+rm(ts, int, interval)
 #Check and correct timezone
 tz(hobo_events_new$dt)
 
@@ -120,6 +120,7 @@ api5 <- getApi(x=x,k=k, finite=TRUE)
 plot(api5)
 
 ppt_api <- ppt %>% 
+  arrange(datetime_EST2) %>% 
   mutate(api_24hr = getApi(W9_Precipitation_mm, k = 0.9, n = 24, finite = TRUE),
          api_10d = getApi(W9_Precipitation_mm, k = 0.9, n = 24*10, finite = TRUE),
          api_30d = getApi(W9_Precipitation_mm, k = 0.9, n = 24*30, finite = TRUE),
@@ -141,68 +142,87 @@ ggplot(ppt_api) +
 
 
 #Daily API
-daily_ppt <- ppt %>%
-  mutate(date = as.Date(datetime_EST2))%>%
+ppt_daily <- ppt %>%
+  mutate(date = as.Date(datetime_EST2)) %>%
   group_by(date)%>%
-  nest()%>%
+  nest() %>%
   mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
   mutate(data = map(data, ~summarise(.x, across(where(is.numeric), sum))))%>%
   unnest_wider(data) %>% 
   ungroup()%>%
   mutate(date = as.POSIXct(date))
 
-sapply(daily_ppt, class)
+sapply(ppt_daily, class)
 
-daily_ppt_api <- daily_ppt %>% 
+ppt_daily_api <- ppt_daily %>% 
+  arrange(date) %>% 
   mutate(api_1d = getApi(W9_Precipitation_mm, k = 0.9, n=1, finite = TRUE),
          api_10d = getApi(W9_Precipitation_mm, k = 0.9, n = 10, finite = TRUE),
          api_30d = getApi(W9_Precipitation_mm, k = 0.9, n = 30, finite = TRUE),
-         api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))
+         api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE),
+         dt_start = force_tz(as_datetime(date), "EST"),
+         dt_end = force_tz(as_datetime(date) + hours(23) + minutes(59) + seconds(59),
+                           "EST"),
+         dt_interval = interval(dt_start, dt_end))
 
+ggplot(ppt_daily_api) +
+  geom_line(mapping = aes(x=date, y=api_1d)) +
+  geom_line(mapping = aes(x=date, y=api_10d), color = "blue") +
+  geom_line(mapping = aes(x=date, y=api_30d), color = "green") +
+  geom_line(mapping = aes(x=date, y=api_inf), color = "red")
+#There is a difference when using daily values
+#30d and infinite are not much different
 
 #Filtering daily API events
-daily_API_events <- slice(daily_ppt_api, 0) 
+ppt_daily_api_events <- slice(ppt_daily_api, 0) 
 
 for (i in 1:length(curve_intervals2$event_n)) {
-  interval <- daily_ppt_api %>%
-    filter(date%within% curve_intervals2$datetime_interval_EST[i]) %>% 
-    mutate(event_n = curve_intervals2$event_n[i])%>%
+  interval <- ppt_daily_api %>%
+    filter(curve_intervals2$datetime_interval_EST[i] %within% dt_interval) %>% 
+    mutate(event_n = curve_intervals2$event_n[i]) %>%
     mutate(recession_n = curve_intervals2$recession_n[i])
   
-  daily_API_events  <- bind_rows(daily_API_events , interval)
+  ppt_daily_api_events  <- bind_rows(ppt_daily_api_events, interval)
 }
+#There are multiple SF/TF collector events per one ppt record, so there are only 58 periods in the daily ppt record that correspond to the 89 SF/TF event periods
+
+ppt_daily_api_events2 <- ppt_daily_api_events %>% 
+  distinct(event_n, .keep_all = TRUE) %>% 
+  select(c(event_n, contains("api")))
+#Now we have a table of APIs for each event
 
 
 #Average hourly API per day
-Avg_API_hourly<- daily_API_events%>%
-  mutate(avg_api_hourly = api_1d/nobs)
-  
+# Avg_API_hourly<- ppt_daily_api_events%>%
+#   mutate(ppt_api_hr_mean = api_1d/nobs)
+#not needed - this is already calculated by daily API
 
-#Monthly API events
-monthly_ppt <- daily_API_events%>%
-  select(date, W9_Precipitation_mm)%>%
-  mutate(date = as.Date(date))%>%
-  mutate(month =  format(as.Date(date, format="%d/%m/%Y"),"%Y-%m"))%>% 
-  group_by(month)%>%
-  nest()%>%
-  mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
-  mutate(data = map(data, ~summarise(.x, across(where(is.numeric), sum))))%>%
-  unnest_wider(data) %>% 
-  ungroup()
-  
-monthly_ppt_api <- monthly_ppt %>% 
-  mutate(api_1m = getApi(W9_Precipitation_mm, k = 0.9, n=1, finite = TRUE),
-         api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))
-
-sapply(monthly_ppt, class)
+#Monthly API events - not needed
+# monthly_ppt <- daily_API_events%>%
+#   select(date, W9_Precipitation_mm)%>%
+#   mutate(date = as.Date(date))%>%
+#   mutate(month =  format(as.Date(date, format="%d/%m/%Y"),"%Y-%m"))%>% 
+#   group_by(month)%>%
+#   nest()%>%
+#   mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
+#   mutate(data = map(data, ~summarise(.x, across(where(is.numeric), sum))))%>%
+#   unnest_wider(data) %>% 
+#   ungroup()
+#   
+# monthly_ppt_api <- monthly_ppt %>% 
+#   mutate(api_1m = getApi(W9_Precipitation_mm, k = 0.9, n=1, finite = TRUE),
+#          api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))
+# 
+# sapply(monthly_ppt, class)
 
 #Average Daily API per month
-Avg_API_daily<- monthly_ppt_api%>%
-  mutate(avg_api_1m_daily = api_1m/nobs)
+# Avg_API_daily<- monthly_ppt_api%>%
+#   mutate(avg_api_1m_daily = api_1m/nobs)
 
 
 
 #Filtering recession curves from raw hourly API
+#KR- USE CUMULATIVE ST/TF records for this step, not API. 
 API_events <- slice(ppt_api, 0) 
 
 for (i in 1:length(curve_intervals2$event_n)) {
