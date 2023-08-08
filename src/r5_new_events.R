@@ -231,25 +231,25 @@ nested_API <- API_events %>%
   group_by(recession_n) %>%
   nest() %>%
   mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
-  mutate(r_24h = map_dbl(.x = data, .f = ~cor(y=.x$api_24hr, x = .x$time,
+  mutate(r_24h = map_dbl(.x = data, .f = ~cor(y=log(.x$api_24hr), x = .x$time,
                                           use = "na.or.complete")),
-         m_24h = map_dbl(data, ~lm(api_24hr~ time, data = .)$coefficients[[2]]),
-         i_24h = map_dbl(data, ~lm(api_24hr ~ time, data = .)$coefficients[[1]]),
+         m_24h = map_dbl(data, ~lm(log(api_24hr)~ time, data = .)$coefficients[[2]]),
+         i_24h = map_dbl(data, ~lm(log(api_24hr) ~ time, data = .)$coefficients[[1]]),
          r_24h_sqr = r_24h^2)%>%
-  mutate(r_10d = map_dbl(.x = data, .f = ~cor(y=.x$api_10d, x = .x$time,
+  mutate(r_10d = map_dbl(.x = data, .f = ~cor(y=log(.x$api_10d), x = .x$time,
                                           use = "na.or.complete")),
-         m_10d = map_dbl(data, ~lm(api_10d ~ time, data = .)$coefficients[[2]]),
-         i_10d = map_dbl(data, ~lm(api_10d  ~ time, data = .)$coefficients[[1]]),
+         m_10d = map_dbl(data, ~lm(log(api_10d) ~ time, data = .)$coefficients[[2]]),
+         i_10d = map_dbl(data, ~lm(log(api_10d)  ~ time, data = .)$coefficients[[1]]),
          r_10d_sqr = r_10d^2)%>%
-  mutate(r_30d = map_dbl(.x = data, .f = ~cor(y=.x$api_30d, x = .x$time,
+  mutate(r_30d = map_dbl(.x = data, .f = ~cor(y=log(.x$api_30d), x = .x$time,
                                           use = "na.or.complete")),
-         m_30d = map_dbl(data, ~lm(api_30d ~ time, data = .)$coefficients[[2]]),
-         i_30d = map_dbl(data, ~lm(api_30d  ~ time, data = .)$coefficients[[1]]),
+         m_30d = map_dbl(data, ~lm(log(api_30d) ~ time, data = .)$coefficients[[2]]),
+         i_30d = map_dbl(data, ~lm(log(api_30d)  ~ time, data = .)$coefficients[[1]]),
          r_30d_sqr = r_30d^2)%>%
-  mutate(r_inf = map_dbl(.x = data, .f = ~cor(y=.x$api_inf, x = .x$time,
+  mutate(r_inf = map_dbl(.x = data, .f = ~cor(y=log(.x$api_inf), x = .x$time,
                                               use = "na.or.complete")),
-         m_inf = map_dbl(data, ~lm(api_inf ~ time, data = .)$coefficients[[2]]),
-         i_inf = map_dbl(data, ~lm(api_inf  ~ time, data = .)$coefficients[[1]]),
+         m_inf = map_dbl(data, ~lm(log(api_inf) ~ time, data = .)$coefficients[[2]]),
+         i_inf = map_dbl(data, ~lm(log(api_inf)  ~ time, data = .)$coefficients[[1]]),
          r_inf_sqr = r_inf^2)%>%
   ungroup()
 
@@ -261,9 +261,31 @@ all_events<-inner_join(hobo_events_new, nested_API,
 #Visualizing cumulative hobo yield per event with the r values of the respective 
 #log linear curves of APIs
 ggplot(all_events) +
-  geom_line(mapping = aes(x=dt, y=yield_mm)) +
-  geom_line(mapping = aes(x=dt, y=r_24h), color = "yellow") +
-  geom_line(mapping = aes(x=dt, y=r_10d), color = "blue") +
-  geom_line(mapping = aes(x=dt, y=r_30d), color = "green") +
-  geom_line(mapping = aes(x=dt, y=r_inf), color = "red")+
+  geom_point(mapping = aes(x=dt, y=log(yield_mm))) +
+  geom_point(mapping = aes(x=dt, y=r_24h), color = "yellow") +
+  geom_point(mapping = aes(x=dt, y=r_10d), color = "blue") +
+  geom_point(mapping = aes(x=dt, y=r_30d), color = "green") +
+  geom_point(mapping = aes(x=dt, y=r_inf), color = "red")+
+  facet_wrap(~ hobo_event_n, scales = "free")
+
+
+#Visualizing cumulative hobo yield per event with the r values of the respective 
+#log linear curves of APIs
+ggplot(all_events) +
+  geom_point(mapping = aes(x=dt, y=log(yield_mm))) +
+  geom_point(mapping = aes(x=dt, y=m_24h), color = "yellow") +
+  geom_point(mapping = aes(x=dt, y=m_10d), color = "blue") +
+  geom_point(mapping = aes(x=dt, y=m_30d), color = "green") +
+  geom_point(mapping = aes(x=dt, y=m_inf), color = "red")+
+  facet_wrap(~ hobo_event_n, scales = "free")
+
+
+#Visualizing cumulative hobo yield per event with the i values of the respective 
+#log linear curves of APIs
+ggplot(all_events) +
+  geom_point(mapping = aes(x=dt, y=log(yield_mm))) +
+  geom_point(mapping = aes(x=dt, y=i_24h), color = "yellow") +
+  geom_point(mapping = aes(x=dt, y=i_10d), color = "blue") +
+  geom_point(mapping = aes(x=dt, y=i_30d), color = "green") +
+  geom_point(mapping = aes(x=dt, y=i_inf), color = "red")+
   facet_wrap(~ hobo_event_n, scales = "free")
