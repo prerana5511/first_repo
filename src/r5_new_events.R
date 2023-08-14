@@ -263,21 +263,25 @@ nested_hobo_events <- hobo_events_new2 %>%
                                           use = "na.or.complete")),
          m = map_dbl(data, ~lm(log_yield~ time, data = .)$coefficients[[2]]),
          i = map_dbl(data, ~lm(log_yield ~ time, data = .)$coefficients[[1]]),
-         r2 = r^2)%>%
+         r2 = r^2) %>%
   unnest(data)%>%
-  ungroup()%>%
-  mutate(cv = sd(m) / mean(m) * 100)%>% #cv is same for all
+  ungroup() %>%
+  # mutate(cv = sd(m) / mean(m) * 100) %>% #cv is same for all
   distinct(across(recession_n), .keep_all = TRUE)
 
 ggplot(nested_hobo_events) + geom_jitter(mapping = aes(x=as.factor(hobo_event_n) , y= m, colour = site))
 
 
 all_events<-inner_join(ppt_daily_api_events, nested_hobo_events,
-                       by = c( "recession_n"))%>%
+                       by = c( "recession_n")) %>%
   group_by(recession_n, dt_interval)%>%
   mutate(event_dur_num = as.numeric(dt_interval),units="secs")%>% ##24hrs event
-  mutate(event_intensity = W9_Precipitation_mm/event_dur_num)
-
+  mutate(event_intensity = W9_Precipitation_mm/event_dur_num) %>% 
+  ungroup() %>% 
+  group_by(event_n) %>% 
+  mutate(cv = sd(m) / mean(m) * 100) %>% 
+  ungroup()
+  
 sapply(all_events, class)
 
 
@@ -322,9 +326,10 @@ tf2 <- ggplot(all_events2 %>% filter(str_detect(site, "TF")),
        mapping = aes(x= date , y= yield_norm, fill = site))+ 
   geom_bar(stat='identity')
 
-tf1/tf2
+p1 <- tf1/tf2
 
-
+ggsave(filename = "tf.png", plot = p1, path = paste0(here, "/output/figs/"),
+       device = "png")
 
 sf1 <- ggplot(all_events2 %>% filter(!str_detect(site, "TF")), 
               mapping = aes(x= date , y= W9_Precipitation_mm))+ 
@@ -334,9 +339,10 @@ sf2 <- ggplot(all_events2 %>% filter(!str_detect(site, "TF")),
               mapping = aes(x= date , y= yield_norm, fill = site))+ 
   geom_bar(stat='identity')
 
-sf1/sf2
+p2 <- sf1/sf2
 
-
+ggsave(filename = "sf.png", plot = p2, path = paste0(here, "/output/figs/"),
+       device = "png")
 
 
 
