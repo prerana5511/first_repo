@@ -9,6 +9,8 @@ library(dygraphs)
 library(readxl)
 # library(ggplot2)
 library(scales)
+library(patchwork)
+
 
 
 hobo_events <- readRDS(paste0(here, "/output/hobo_events.Rds"))
@@ -26,7 +28,7 @@ curve_intervals2 <- curve_intervals %>%
                                                      end = End_dt_EST,
                                                      tz = "EST"),
          event_dur_sec = dseconds(datetime_interval_EST))
-tz(curve_intervals2$Start_dt_EST)
+# tz(curve_intervals2$datetime_interval_EST)
 sapply(curve_intervals2, class)
 
 #Filter out multiple intervals 
@@ -58,7 +60,7 @@ for(i in sites) {
   hobo_events_new <- bind_rows(hobo_events_new, interval)
 }
 }
-
+rm(ts, int, interval)
 #Check and correct timezone
 tz(hobo_events_new$dt)
 
@@ -120,6 +122,7 @@ api5 <- getApi(x=x,k=k, finite=TRUE)
 plot(api5)
 
 ppt_api <- ppt %>% 
+  arrange(datetime_EST2) %>% 
   mutate(api_24hr = getApi(W9_Precipitation_mm, k = 0.9, n = 24, finite = TRUE),
          api_10d = getApi(W9_Precipitation_mm, k = 0.9, n = 24*10, finite = TRUE),
          api_30d = getApi(W9_Precipitation_mm, k = 0.9, n = 24*30, finite = TRUE),
@@ -141,151 +144,249 @@ ggplot(ppt_api) +
 
 
 #Daily API
-daily_ppt <- ppt %>%
-  mutate(date = as.Date(datetime_EST2))%>%
+ppt_daily <- ppt %>%
+  mutate(date = as.Date(datetime_EST2)) %>%
   group_by(date)%>%
-  nest()%>%
+  nest() %>%
   mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
   mutate(data = map(data, ~summarise(.x, across(where(is.numeric), sum))))%>%
   unnest_wider(data) %>% 
   ungroup()%>%
   mutate(date = as.POSIXct(date))
 
-sapply(daily_ppt, class)
+sapply(ppt_daily, class)
 
-daily_ppt_api <- daily_ppt %>% 
+ppt_daily_api <- ppt_daily %>% 
+  arrange(date) %>% 
   mutate(api_1d = getApi(W9_Precipitation_mm, k = 0.9, n=1, finite = TRUE),
          api_10d = getApi(W9_Precipitation_mm, k = 0.9, n = 10, finite = TRUE),
          api_30d = getApi(W9_Precipitation_mm, k = 0.9, n = 30, finite = TRUE),
-         api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))
+         api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE),
+         dt_start = force_tz(as_datetime(date), "EST"),
+         dt_end = force_tz(as_datetime(date) + hours(23) + minutes(59) + seconds(59),
+                           "EST"),
+         dt_interval = interval(dt_start, dt_end))
 
+ggplot(ppt_daily_api) +
+  geom_line(mapping = aes(x=date, y=api_1d)) +
+  geom_line(mapping = aes(x=date, y=api_10d), color = "blue") +
+  geom_line(mapping = aes(x=date, y=api_30d), color = "green") +
+  geom_line(mapping = aes(x=date, y=api_inf), color = "red")
+#There is a difference when using daily values
+#30d and infinite are not much different
 
 #Filtering daily API events
-daily_API_events <- slice(daily_ppt_api, 0) 
+ppt_daily_api_events <- slice(ppt_daily_api, 0) 
 
 for (i in 1:length(curve_intervals2$event_n)) {
-  interval <- daily_ppt_api %>%
-    filter(date%within% curve_intervals2$datetime_interval_EST[i]) %>% 
-    mutate(event_n = curve_intervals2$event_n[i])%>%
+  interval <- ppt_daily_api %>%
+    filter(curve_intervals2$datetime_interval_EST[i] %within% dt_interval) %>% 
+    mutate(event_n = curve_intervals2$event_n[i]) %>%
     mutate(recession_n = curve_intervals2$recession_n[i])
   
-  daily_API_events  <- bind_rows(daily_API_events , interval)
+  ppt_daily_api_events  <- bind_rows(ppt_daily_api_events, interval)
 }
+#There are multiple SF/TF collector events per one ppt record, so there are only 58 periods in the daily ppt record that correspond to the 89 SF/TF event periods
+
+ppt_daily_api_events2 <- ppt_daily_api_events %>% 
+  distinct(event_n, .keep_all = TRUE) %>% 
+  select(c(event_n, contains("api")))
+#Now we have a table of APIs for each event
 
 
 #Average hourly API per day
-Avg_API_hourly<- daily_API_events%>%
-  mutate(avg_api_hourly = api_1d/nobs)
-  
+# Avg_API_hourly<- ppt_daily_api_events%>%
+#   mutate(ppt_api_hr_mean = api_1d/nobs)
+#not needed - this is already calculated by daily API
 
-#Monthly API events
-monthly_ppt <- daily_API_events%>%
-  select(date, W9_Precipitation_mm)%>%
-  mutate(date = as.Date(date))%>%
-  mutate(month =  format(as.Date(date, format="%d/%m/%Y"),"%Y-%m"))%>% 
-  group_by(month)%>%
-  nest()%>%
-  mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
-  mutate(data = map(data, ~summarise(.x, across(where(is.numeric), sum))))%>%
-  unnest_wider(data) %>% 
-  ungroup()
-  
-monthly_ppt_api <- monthly_ppt %>% 
-  mutate(api_1m = getApi(W9_Precipitation_mm, k = 0.9, n=1, finite = TRUE),
-         api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))
-
-sapply(monthly_ppt, class)
+#Monthly API events - not needed
+# monthly_ppt <- daily_API_events%>%
+#   select(date, W9_Precipitation_mm)%>%
+#   mutate(date = as.Date(date))%>%
+#   mutate(month =  format(as.Date(date, format="%d/%m/%Y"),"%Y-%m"))%>% 
+#   group_by(month)%>%
+#   nest()%>%
+#   mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
+#   mutate(data = map(data, ~summarise(.x, across(where(is.numeric), sum))))%>%
+#   unnest_wider(data) %>% 
+#   ungroup()
+#   
+# monthly_ppt_api <- monthly_ppt %>% 
+#   mutate(api_1m = getApi(W9_Precipitation_mm, k = 0.9, n=1, finite = TRUE),
+#          api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))
+# 
+# sapply(monthly_ppt, class)
 
 #Average Daily API per month
-Avg_API_daily<- monthly_ppt_api%>%
-  mutate(avg_api_1m_daily = api_1m/nobs)
+# Avg_API_daily<- monthly_ppt_api%>%
+#   mutate(avg_api_1m_daily = api_1m/nobs)
 
 
 
 #Filtering recession curves from raw hourly API
-API_events <- slice(ppt_api, 0) 
+#KR- USE CUMULATIVE ST/TF records for this step, not API. 
+# API_events <- slice(ppt_api, 0) 
 
-for (i in 1:length(curve_intervals2$event_n)) {
-  interval <- ppt_api %>%
-    filter(datetime_EST2%within% curve_intervals2$datetime_interval_EST[i]) %>% 
-    mutate(event_n = curve_intervals2$event_n[i])%>%
-    mutate(recession_n = curve_intervals2$recession_n[i])
-  
-  API_events  <- bind_rows(API_events , interval)
-}
-
-
-ggplot(API_events) +
-  geom_line(mapping = aes(x=datetime_EST2, y=api_24hr)) +
-  geom_line(mapping = aes(x=datetime_EST2, y=api_10d), color = "blue") +
-  geom_line(mapping = aes(x=datetime_EST2, y=api_30d), color = "green") +
-  geom_line(mapping = aes(x=datetime_EST2, y=api_inf), color = "red")
-
-
-sapply(API_events, class)
+# for (i in 1:length(curve_intervals2$event_n)) {
+#   interval <- ppt_api %>%
+#     filter(datetime_EST2%within% curve_intervals2$datetime_interval_EST[i]) %>% 
+#     mutate(event_n = curve_intervals2$event_n[i])%>%
+#     mutate(recession_n = curve_intervals2$recession_n[i])
+#   
+#   API_events  <- bind_rows(API_events , interval)
+# }
+# 
+# 
+# ggplot(API_events) +
+#   geom_line(mapping = aes(x=datetime_EST2, y=api_24hr)) +
+#   geom_line(mapping = aes(x=datetime_EST2, y=api_10d), color = "blue") +
+#   geom_line(mapping = aes(x=datetime_EST2, y=api_30d), color = "green") +
+#   geom_line(mapping = aes(x=datetime_EST2, y=api_inf), color = "red")
+# 
+# 
+# sapply(API_events, class)
 
 
 #Log linear curves for 24hr, 10days, 30days and infinity API
-nested_API <- API_events %>%
-  mutate(time = as.numeric(datetime_EST2))%>%
+hobo_events_new2 <- hobo_events_new %>%
+  mutate(time = as.numeric(dt))%>%
+  mutate(log_yield = log(yield_mm))
+
+hobo_events_new2[c('log_yield')][sapply(hobo_events_new2[c('log_yield')], is.infinite)] <- NA
+
+nested_hobo_events <- hobo_events_new2 %>%
+  drop_na()%>%
   group_by(recession_n) %>%
   nest() %>%
   mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
-  mutate(r_24h = map_dbl(.x = data, .f = ~cor(y=log(.x$api_24hr), x = .x$time,
+  mutate(r = map_dbl(.x = data, .f = ~cor(y=(.x$log_yield), x = .x$time,
                                           use = "na.or.complete")),
-         m_24h = map_dbl(data, ~lm(log(api_24hr)~ time, data = .)$coefficients[[2]]),
-         i_24h = map_dbl(data, ~lm(log(api_24hr) ~ time, data = .)$coefficients[[1]]),
-         r_24h_sqr = r_24h^2)%>%
-  mutate(r_10d = map_dbl(.x = data, .f = ~cor(y=log(.x$api_10d), x = .x$time,
-                                          use = "na.or.complete")),
-         m_10d = map_dbl(data, ~lm(log(api_10d) ~ time, data = .)$coefficients[[2]]),
-         i_10d = map_dbl(data, ~lm(log(api_10d)  ~ time, data = .)$coefficients[[1]]),
-         r_10d_sqr = r_10d^2)%>%
-  mutate(r_30d = map_dbl(.x = data, .f = ~cor(y=log(.x$api_30d), x = .x$time,
-                                          use = "na.or.complete")),
-         m_30d = map_dbl(data, ~lm(log(api_30d) ~ time, data = .)$coefficients[[2]]),
-         i_30d = map_dbl(data, ~lm(log(api_30d)  ~ time, data = .)$coefficients[[1]]),
-         r_30d_sqr = r_30d^2)%>%
-  mutate(r_inf = map_dbl(.x = data, .f = ~cor(y=log(.x$api_inf), x = .x$time,
-                                              use = "na.or.complete")),
-         m_inf = map_dbl(data, ~lm(log(api_inf) ~ time, data = .)$coefficients[[2]]),
-         i_inf = map_dbl(data, ~lm(log(api_inf)  ~ time, data = .)$coefficients[[1]]),
-         r_inf_sqr = r_inf^2)%>%
-  ungroup()
+         m = map_dbl(data, ~lm(log_yield~ time, data = .)$coefficients[[2]]),
+         i = map_dbl(data, ~lm(log_yield ~ time, data = .)$coefficients[[1]]),
+         r2 = r^2)%>%
+  unnest(data)%>%
+  ungroup()%>%
+  mutate(cv = sd(m) / mean(m) * 100)%>% #cv is same for all
+  distinct(across(recession_n), .keep_all = TRUE)
+
+ggplot(nested_hobo_events) + geom_jitter(mapping = aes(x=as.factor(hobo_event_n) , y= m, colour = site))
 
 
-#Joining the cumulative hobo events and log linear curve data of APIs
-all_events<-inner_join(hobo_events_new, nested_API,
-                    by = c( "recession_n"))
+all_events<-inner_join(ppt_daily_api_events, nested_hobo_events,
+                       by = c( "recession_n"))%>%
+  group_by(recession_n, dt_interval)%>%
+  mutate(event_dur_num = as.numeric(dt_interval),units="secs")%>% ##24hrs event
+  mutate(event_intensity = W9_Precipitation_mm/event_dur_num)
+
+sapply(all_events, class)
+
+
+ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=cv , y= api_1d, colour = site))
+ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=cv , y= api_10d, colour = site))
+ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=cv , y= api_30d, colour = site))
+ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=cv , y= api_inf, colour = site))
+
+ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=cv , y= api_1d, colour = site))
+ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=cv , y= api_10d, colour = site))
+ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=cv , y= api_30d, colour = site))
+ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=cv , y= api_inf, colour = site))
+
+
+
+ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=cv , y= event_intensity, colour = site))
+ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=cv , y= event_intensity, colour = site))
+
+
+
+all_events2<- all_events %>%
+  group_by(site)%>%
+  mutate(yield_norm = yield_mm + abs(min(yield_mm)))
+
+
+
+tf1 <- ggplot(all_events2 %>% filter(str_detect(site, "TF")), 
+       mapping = aes(x= date , y= W9_Precipitation_mm))+ 
+  geom_bar(stat='identity')
+
+tf2 <- ggplot(all_events2 %>% filter(str_detect(site, "TF")), 
+       mapping = aes(x= date , y= yield_norm, fill = site))+ 
+  geom_bar(stat='identity')
+
+tf1/tf2
+
+
+
+sf1 <- ggplot(all_events2 %>% filter(!str_detect(site, "TF")), 
+              mapping = aes(x= date , y= W9_Precipitation_mm))+ 
+  geom_bar(stat='identity')
+
+sf2 <- ggplot(all_events2 %>% filter(!str_detect(site, "TF")), 
+              mapping = aes(x= date , y= yield_norm, fill = site))+ 
+  geom_bar(stat='identity')
+
+sf1/sf2
+
+
+
+
+
+
+ 
+# #Joining the cumulative hobo events and log linear curve data of APIs
+# all_events<-inner_join(hobo_events_new2, nested_hobo_events,
+#                     by = c( "recession_n", "log_yield", "time","dt","site","hobo_event_n","yield_mm"))
+
+
+#Visualizing cumulative hobo yield per event and slope in log linear models
+# ggplot(all_events) +
+#   geom_point(mapping = aes(x=dt, y= log(yield_mm), colour = recession_n)) +
+#   geom_point(mapping = aes(x=dt, y=m), color = "green") +
+#   geom_point(mapping = aes(x=dt, y=r), color = "blue")+
+#   geom_point(mapping = aes(x=dt, y=i), color = "red")+
+#   facet_wrap(~ hobo_event_n, scales = "free")
+# 
+# #Visualizing cumulative hobo yield per event and r in log linear models
+# ggplot(all_events %>% filter(str_detect(site, "TF"))) +
+#   geom_point(mapping = aes(x=dt, y=yield_mm, colour = site)) +
+#   # geom_point(mapping = aes(x=dt, y=m), color = "green") +
+#   # geom_point(mapping = aes(x=dt, y=r), color = "blue")+
+#   # geom_point(mapping = aes(x=dt, y=i), color = "red")+
+#   facet_wrap(~ hobo_event_n, scales = "free")
+
+
+
+
+# tree <-all_events%>%
+#   pivot_wider(names_from = "site", values_from = "log_yield")%>%
+#   pivot_longer(cols = c("SF-A","SF-C") , names_to = "Sugar_Maple", 
+#                values_to = "SM_yield")%>%
+#   pivot_longer(cols = c("SF-B","SF-D") , names_to = "Yellow_Birch", 
+#                values_to = "YB_yield")%>%
+#   
+#   pivot_longer(cols = c("SM_yield","YB_yield") , names_to = "Stemflow", 
+#                values_to = "stemflow_yield")%>%
+#   pivot_longer(cols = c("TF-B","TF-D") , names_to = "Throughfall", 
+#                values_to = "throughfall_yield")%>%
+#   pivot_longer(cols = c("stemflow_yield","throughfall_yield") , names_to = "Flowpath", 
+#                values_to = "flowpath_yield")
+# 
+# 
+# ggplot(tree) +
+#   geom_boxplot(mapping=aes(x=dt, y= flowpath_yield, group = Sugar_Maple)) +
+#   geom_jitter(mapping=aes(x=dt, y= flowpath_yield, group = Sugar_Maple, colour= Sugar_Maple))+
+#   # geom_point(mapping = aes(x=dt, y= yield_mm, colour = Stemflow)) +
+#   geom_point(mapping = aes(x=dt, y=m), color = "green") +
+#   facet_wrap(~ hobo_event_n, scales = "free")
+#   
   
-#Visualizing cumulative hobo yield per event with the r values of the respective 
-#log linear curves of APIs
-ggplot(all_events) +
-  geom_point(mapping = aes(x=dt, y=log(yield_mm))) +
-  geom_point(mapping = aes(x=dt, y=r_24h), color = "yellow") +
-  geom_point(mapping = aes(x=dt, y=r_10d), color = "blue") +
-  geom_point(mapping = aes(x=dt, y=r_30d), color = "green") +
-  geom_point(mapping = aes(x=dt, y=r_inf), color = "red")+
-  facet_wrap(~ hobo_event_n, scales = "free")
-
-
-#Visualizing cumulative hobo yield per event with the r values of the respective 
-#log linear curves of APIs
-ggplot(all_events) +
-  geom_point(mapping = aes(x=dt, y=log(yield_mm))) +
-  geom_point(mapping = aes(x=dt, y=m_24h), color = "yellow") +
-  geom_point(mapping = aes(x=dt, y=m_10d), color = "blue") +
-  geom_point(mapping = aes(x=dt, y=m_30d), color = "green") +
-  geom_point(mapping = aes(x=dt, y=m_inf), color = "red")+
-  facet_wrap(~ hobo_event_n, scales = "free")
-
-
-#Visualizing cumulative hobo yield per event with the i values of the respective 
-#log linear curves of APIs
-ggplot(all_events) +
-  geom_point(mapping = aes(x=dt, y=log(yield_mm))) +
-  geom_point(mapping = aes(x=dt, y=i_24h), color = "yellow") +
-  geom_point(mapping = aes(x=dt, y=i_10d), color = "blue") +
-  geom_point(mapping = aes(x=dt, y=i_30d), color = "green") +
-  geom_point(mapping = aes(x=dt, y=i_inf), color = "red")+
-  facet_wrap(~ hobo_event_n, scales = "free")
+  
