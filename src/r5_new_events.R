@@ -191,78 +191,48 @@ for (i in 1:length(curve_intervals2$event_n)) {
 ppt_daily_api_events2 <- ppt_daily_api_events %>% 
   distinct(event_n, .keep_all = TRUE) %>% 
   select(c(event_n, contains("api")))
-#Now we have a table of APIs for each event
-
-
-#Average hourly API per day
-# Avg_API_hourly<- ppt_daily_api_events%>%
-#   mutate(ppt_api_hr_mean = api_1d/nobs)
-#not needed - this is already calculated by daily API
-
-#Monthly API events - not needed
-# monthly_ppt <- daily_API_events%>%
-#   select(date, W9_Precipitation_mm)%>%
-#   mutate(date = as.Date(date))%>%
-#   mutate(month =  format(as.Date(date, format="%d/%m/%Y"),"%Y-%m"))%>% 
-#   group_by(month)%>%
-#   nest()%>%
-#   mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
-#   mutate(data = map(data, ~summarise(.x, across(where(is.numeric), sum))))%>%
-#   unnest_wider(data) %>% 
-#   ungroup()
-#   
-# monthly_ppt_api <- monthly_ppt %>% 
-#   mutate(api_1m = getApi(W9_Precipitation_mm, k = 0.9, n=1, finite = TRUE),
-#          api_inf = getApi(W9_Precipitation_mm, k = 0.9, finite = FALSE))
-# 
-# sapply(monthly_ppt, class)
-
-#Average Daily API per month
-# Avg_API_daily<- monthly_ppt_api%>%
-#   mutate(avg_api_1m_daily = api_1m/nobs)
 
 
 
-#Filtering recession curves from raw hourly API
-#KR- USE CUMULATIVE ST/TF records for this step, not API. 
-# API_events <- slice(ppt_api, 0) 
-
-# for (i in 1:length(curve_intervals2$event_n)) {
-#   interval <- ppt_api %>%
-#     filter(datetime_EST2%within% curve_intervals2$datetime_interval_EST[i]) %>% 
-#     mutate(event_n = curve_intervals2$event_n[i])%>%
-#     mutate(recession_n = curve_intervals2$recession_n[i])
-#   
-#   API_events  <- bind_rows(API_events , interval)
-# }
-# 
-# 
-# ggplot(API_events) +
-#   geom_line(mapping = aes(x=datetime_EST2, y=api_24hr)) +
-#   geom_line(mapping = aes(x=datetime_EST2, y=api_10d), color = "blue") +
-#   geom_line(mapping = aes(x=datetime_EST2, y=api_30d), color = "green") +
-#   geom_line(mapping = aes(x=datetime_EST2, y=api_inf), color = "red")
-# 
-# 
-# sapply(API_events, class)
 
 
-#Log linear curves for 24hr, 10days, 30days and infinity API
+
+hourly_ppt_events <- slice(ppt, 0) 
+
+for (i in 1:length(curve_intervals2$event_n)) {
+  interval <- ppt %>%
+    filter( datetime_EST2 %within% curve_intervals2$datetime_interval_EST[i]) %>% 
+    mutate(event_n = curve_intervals2$event_n[i]) %>%
+    mutate(recession_n = curve_intervals2$recession_n[i])
+  
+  hourly_ppt_events <- bind_rows(hourly_ppt_events, interval)
+}
+
+
+
+
+
+
+
+
+
+
+#models
 hobo_events_new2 <- hobo_events_new %>%
   mutate(time = as.numeric(dt))%>%
-  mutate(log_yield = log(yield_mm))
+  mutate(power_yield = 10^yield_mm)
 
-hobo_events_new2[c('log_yield')][sapply(hobo_events_new2[c('log_yield')], is.infinite)] <- NA
+hobo_events_new2[c('power_yield')][sapply(hobo_events_new2[c('power_yield')], is.infinite)] <- NA
 
 nested_hobo_events <- hobo_events_new2 %>%
   drop_na()%>%
   group_by(recession_n) %>%
   nest() %>%
   mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
-  mutate(r = map_dbl(.x = data, .f = ~cor(y=(.x$log_yield), x = .x$time,
+  mutate(r = map_dbl(.x = data, .f = ~cor(y=(.x$power_yield), x = .x$time,
                                           use = "na.or.complete")),
-         m = map_dbl(data, ~lm(log_yield~ time, data = .)$coefficients[[2]]),
-         i = map_dbl(data, ~lm(log_yield ~ time, data = .)$coefficients[[1]]),
+         m = map_dbl(data, ~lm(power_yield~ time, data = .)$coefficients[[2]]),
+         i = map_dbl(data, ~lm(power_yield ~ time, data = .)$coefficients[[1]]),
          r2 = r^2) %>%
   unnest(data)%>%
   ungroup() %>%
@@ -285,64 +255,129 @@ all_events<-inner_join(ppt_daily_api_events, nested_hobo_events,
 sapply(all_events, class)
 
 
-ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
+t1 <-ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= api_1d, colour = site))
-ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
+t2 <-ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= api_10d, colour = site))
-ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
+t3<-ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= api_30d, colour = site))
-ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
+t4<-ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= api_inf, colour = site))
 
-ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
+ggsave(filename = "TF_cv_api_1d.png", plot = t1, path = paste0(here, "/output/figs/"),
+       device = "png")
+ggsave(filename = "TF_cv_api_10d.png", plot = t2, path = paste0(here, "/output/figs/"),
+       device = "png")
+ggsave(filename = "TF_cv_api_30d.png", plot = t3, path = paste0(here, "/output/figs/"),
+       device = "png")
+ggsave(filename = "TF_cv_api_inf.png", plot = t4, path = paste0(here, "/output/figs/"),
+       device = "png")
+
+
+
+s1 <-ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= api_1d, colour = site))
-ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
+s2 <-ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= api_10d, colour = site))
-ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
+s3 <-ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= api_30d, colour = site))
-ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
+s4 <-ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= api_inf, colour = site))
 
 
+ggsave(filename = "SF_cv_api_1d.png", plot = s1, path = paste0(here, "/output/figs/"),
+       device = "png")
+ggsave(filename = "SF_cv_api_10d.png", plot = s2, path = paste0(here, "/output/figs/"),
+       device = "png")
+ggsave(filename = "SF_cv_api_30d.png", plot = s3, path = paste0(here, "/output/figs/"),
+       device = "png")
+ggsave(filename = "SF_cv_api_inf.png", plot = s4, path = paste0(here, "/output/figs/"),
+       device = "png")
 
-ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
+
+
+
+a1 <- ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= event_intensity, colour = site))
-ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
+a2 <- ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= event_intensity, colour = site))
 
+ggsave(filename = "cv_ei_TF.png", plot = a1, path = paste0(here, "/output/figs/"),
+       device = "png")
+ggsave(filename = "cv_ei_SF.png", plot = a2, path = paste0(here, "/output/figs/"),
+       device = "png")
 
 
-all_events2<- all_events %>%
+
+all_events2<- inner_join(hourly_ppt_events, hobo_events_new,
+                         by = c( "recession_n"))%>%
   group_by(site)%>%
-  mutate(yield_norm = yield_mm + abs(min(yield_mm)))
+  mutate(yield_norm = yield_mm + abs(min(yield_mm)))%>%
+  ungroup()
 
 
 
-tf1 <- ggplot(all_events2 %>% filter(str_detect(site, "TF")), 
-       mapping = aes(x= date , y= W9_Precipitation_mm))+ 
+
+event8a <- all_events2%>%
+  # filter(!str_detect(site, "TF"))%>%
+  filter(event_n == 8)%>%
+  pivot_wider(names_from = "site", values_from = "yield_norm")%>%
+  pivot_longer(cols = c("SF-A","SF-C") , names_to = "Sugar_Maple",
+                 values_to = "SM_yield")%>%
+  pivot_longer(cols = c("SF-B", "SF-D") , names_to = "Yellow_Birch",
+                 values_to = "YB_yield")%>%
+  pivot_longer(cols = c("SM_yield","YB_yield") , names_to = "stemflow",
+                 values_to = "SF_yield")%>%
+  pivot_longer(cols = c("TF-B","TF-D") , names_to = "Throughfall", 
+               values_to = "TF_yield")%>%
+  distinct(SF_yield,TF_yield, .keep_all = TRUE)
+
+event8b <- event8a%>%
+  pivot_longer(cols = c("SF_yield","TF_yield") , names_to = "Flowpath", 
+               values_to = "flowpath_yield")%>%
+  distinct(flowpath_yield, .keep_all = TRUE)
+
+
+event8 <-inner_join(event8a,event8b,
+                     by = c( "recession_n", "datetime_EST","datetime_EST2","dt",
+                             "W9_Precipitation_mm","event_n", "yield_mm",
+                             "Sugar_Maple", "Yellow_Birch", "stemflow",
+                             "Throughfall","hobo_event_n"))
+
+
+ev8_ppt <-ggplot(event8, mapping = aes(x= datetime_EST2, y= W9_Precipitation_mm))+ 
+  # geom_point()
   geom_bar(stat='identity')
+ev8_hobo_FP <-ggplot(event8, mapping = aes(x= datetime_EST2 , y= flowpath_yield,
+                                           color=Flowpath))+ 
+  geom_point()
+ev8_hobo_SF <-ggplot(event8, mapping = aes(x= datetime_EST2, y= SF_yield, color=stemflow))+ 
+  geom_point()
 
-tf2 <- ggplot(all_events2 %>% filter(str_detect(site, "TF")), 
-       mapping = aes(x= date , y= yield_norm, fill = site))+ 
+p1 <- ev8_ppt+ ev8_hobo_FP + ev8_hobo_SF + plot_layout(ncol=1) 
+
+
+
+ev8_ppt <-ggplot(event8, mapping = aes(x= dt, y= W9_Precipitation_mm))+ 
+  # geom_point()
   geom_bar(stat='identity')
+ev8_hobo_FP <-ggplot(event8, mapping = aes(x= dt , y= flowpath_yield,
+                                           colour=Flowpath))+ 
+  geom_point()
+ev8_hobo_SF <-ggplot(event8, mapping = aes(x= dt , y= SF_yield, color=stemflow))+ 
+  geom_point()
 
-p1 <- tf1/tf2
+p2 <- ev8_ppt+ev8_hobo_FP + ev8_hobo_SF + plot_layout(ncol=1) 
 
-ggsave(filename = "tf.png", plot = p1, path = paste0(here, "/output/figs/"),
+
+
+ggsave(filename = "ppt_time.png", plot = p1, path = paste0(here, "/output/figs/"),
        device = "png")
 
-sf1 <- ggplot(all_events2 %>% filter(!str_detect(site, "TF")), 
-              mapping = aes(x= date , y= W9_Precipitation_mm))+ 
-  geom_bar(stat='identity')
-
-sf2 <- ggplot(all_events2 %>% filter(!str_detect(site, "TF")), 
-              mapping = aes(x= date , y= yield_norm, fill = site))+ 
-  geom_bar(stat='identity')
-
-p2 <- sf1/sf2
-
-ggsave(filename = "sf.png", plot = p2, path = paste0(here, "/output/figs/"),
+ggsave(filename = "hobo_time.png", plot = p2, path = paste0(here, "/output/figs/"),
        device = "png")
+
+
 
 
 
