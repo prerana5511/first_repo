@@ -219,8 +219,11 @@ for (i in 1:length(curve_intervals2$event_n)) {
 
 #models
 hobo_events_new2 <- hobo_events_new %>%
-  mutate(time = as.numeric(dt))%>%
-  mutate(power_yield = 10^yield_mm)
+  mutate(sec = seconds(dt) - min(seconds(dt)),
+         sec_norm = sec/max(sec),
+         yld_mm_norm1 = yield_mm - min(yield_mm),
+         yld_mm_norm2 = yld_mm_norm1/max(yld_mm_norm1),
+         power_yield = 10^yld_mm_norm2)
 
 hobo_events_new2[c('power_yield')][sapply(hobo_events_new2[c('power_yield')], is.infinite)] <- NA
 
@@ -228,24 +231,27 @@ nested_hobo_events <- hobo_events_new2 %>%
   drop_na()%>%
   group_by(recession_n) %>%
   nest() %>%
-  mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
-  mutate(r = map_dbl(.x = data, .f = ~cor(y=(.x$power_yield), x = .x$time,
+  mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x))) %>%
+  mutate(mod = map(data, ~lm(power_yield ~ sec_norm, data= .)),
+         r = map_dbl(.x = data, .f = ~cor(y=(.x$power_yield), x = .x$sec_norm,
                                           use = "na.or.complete")),
-         m = map_dbl(data, ~lm(power_yield~ time, data = .)$coefficients[[2]]),
-         i = map_dbl(data, ~lm(power_yield ~ time, data = .)$coefficients[[1]]),
-         r2 = r^2) %>%
-  unnest(data)%>%
+         m = map_dbl(data, ~lm(power_yield~ sec_norm, data = .)$coefficients[[2]]),
+         i = map_dbl(data, ~lm(power_yield ~ sec_norm, data = .)$coefficients[[1]]),
+         r2 = r^2) %>% 
+  unnest(data) %>%
   ungroup() %>%
   # mutate(cv = sd(m) / mean(m) * 100) %>% #cv is same for all
   distinct(across(recession_n), .keep_all = TRUE)
 
-ggplot(nested_hobo_events) + geom_jitter(mapping = aes(x=as.factor(hobo_event_n) , y= m, colour = site))
+ggplot(nested_hobo_events) + 
+  geom_jitter(mapping = aes(x=as.factor(hobo_event_n), y= m, colour = site))
 
 
 all_events<-inner_join(ppt_daily_api_events, nested_hobo_events,
                        by = c( "recession_n")) %>%
   group_by(recession_n, dt_interval)%>%
-  mutate(event_dur_num = as.numeric(dt_interval),units="secs")%>% ##24hrs event
+  mutate(event_dur_num = as.numeric(dt_interval),
+         units="secs") %>% ##24hrs event
   mutate(event_intensity = W9_Precipitation_mm/event_dur_num) %>% 
   ungroup() %>% 
   group_by(event_n) %>% 
@@ -299,8 +305,10 @@ ggsave(filename = "SF_cv_api_inf.png", plot = s4, path = paste0(here, "/output/f
 
 a1 <- ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= event_intensity, colour = site))
+a1
 a2 <- ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
   geom_jitter(mapping = aes(x=cv , y= event_intensity, colour = site))
+a2
 
 ggsave(filename = "cv_ei_TF.png", plot = a1, path = paste0(here, "/output/figs/"),
        device = "png")
@@ -309,10 +317,30 @@ ggsave(filename = "cv_ei_SF.png", plot = a2, path = paste0(here, "/output/figs/"
 
 
 
+p1 <- ggplot(all_events %>% filter(str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=event_intensity, y= m, colour = site),
+              size = 5) +
+  theme_bw()
+p1
+p2 <- ggplot(all_events %>% filter(!str_detect(site, "TF"))) + 
+  geom_jitter(mapping = aes(x=event_intensity, y= m, colour = site),
+              size = 5) +
+  theme_bw()
+
+p2
+
+ggsave(filename = "ei_m_TF.png", plot = p1, path = paste0(here, "/output/figs/"),
+       device = "png")
+ggsave(filename = "ei_m_SF.png", plot = p2, path = paste0(here, "/output/figs/"),
+       device = "png")
+
+
+
 all_events2<- inner_join(hourly_ppt_events, hobo_events_new,
                          by = c( "recession_n"))%>%
   group_by(site)%>%
-  mutate(yield_norm = yield_mm + abs(min(yield_mm)))%>%
+  mutate(yld_mm_norm1 = yield_mm - min(yield_mm),
+         yld_mm_norm2 = yld_mm_norm1/max(yld_mm_norm1)) %>%
   ungroup()
 
 
@@ -320,8 +348,8 @@ all_events2<- inner_join(hourly_ppt_events, hobo_events_new,
 
 event8a <- all_events2%>%
   # filter(!str_detect(site, "TF"))%>%
-  filter(event_n == 8)%>%
-  pivot_wider(names_from = "site", values_from = "yield_norm")%>%
+  filter(event_n == 1)%>%
+  pivot_wider(names_from = "site", values_from = "yld_mm_norm2")%>%
   pivot_longer(cols = c("SF-A","SF-C") , names_to = "Sugar_Maple",
                  values_to = "SM_yield")%>%
   pivot_longer(cols = c("SF-B", "SF-D") , names_to = "Yellow_Birch",
@@ -332,7 +360,7 @@ event8a <- all_events2%>%
                values_to = "TF_yield")%>%
   distinct(SF_yield,TF_yield, .keep_all = TRUE)
 
-event8b <- event8a%>%
+event8b <- event8a %>%
   pivot_longer(cols = c("SF_yield","TF_yield") , names_to = "Flowpath", 
                values_to = "flowpath_yield")%>%
   distinct(flowpath_yield, .keep_all = TRUE)
@@ -356,7 +384,7 @@ ev8_hobo_SF <-ggplot(event8, mapping = aes(x= datetime_EST2, y= SF_yield, color=
 
 p1 <- ev8_ppt+ ev8_hobo_FP + ev8_hobo_SF + plot_layout(ncol=1) 
 
-
+p1
 
 ev8_ppt <-ggplot(event8, mapping = aes(x= dt, y= W9_Precipitation_mm))+ 
   # geom_point()
@@ -369,7 +397,7 @@ ev8_hobo_SF <-ggplot(event8, mapping = aes(x= dt , y= SF_yield, color=stemflow))
 
 p2 <- ev8_ppt+ev8_hobo_FP + ev8_hobo_SF + plot_layout(ncol=1) 
 
-
+p2
 
 ggsave(filename = "ppt_time.png", plot = p1, path = paste0(here, "/output/figs/"),
        device = "png")
