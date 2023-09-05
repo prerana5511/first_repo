@@ -93,6 +93,9 @@ class(start)
 tz(start)
 
 
+write_csv(ppt_intervals2,
+          paste0(here,"/data/ppt_interval_fomatted.csv"))
+
 #create an empty dataframe with same headers
 ppt_events <- slice(ppt_intervals2, 0) 
 
@@ -113,6 +116,8 @@ attr(ppt_events$datetime_EST2, "tzone") <- "EST"
 tz(ppt_events$datetime_EST2)
 #Now the hourly time series record is filtered with event numbers
 
+
+write_csv(ppt_events, paste0(here, "/output/ppt_events.csv"))
 
 
 centroid<-ppt_events %>% 
