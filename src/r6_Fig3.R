@@ -44,14 +44,13 @@ nested_rec_events <- rec_norm %>%
 
 
 
-#Prediction (shows the corresponding (i.e, here row 2) value for power yield correctly)
-newdat <- data.frame(sec_norm=nested_rec_events$sec_norm[15]) 
+newdat <- data.frame(sec_norm=nested_rec_events$sec_norm[1:81])
 
 model_rec_events <- rec_norm %>%
   dplyr::group_by(recession_n)%>%
   nest() %>%
   mutate(m1 = purrr::map(.x = data, .f = ~ lm(power_yield~ sec_norm, data = .))) %>%
-  mutate(Pred = purrr::map(.x = m1, ~ predict(., newdat))) %>% #predict on new data
+  mutate(Pred = purrr::map2(.x = m1, .y = data, ~ predict.lm(object =.x))) %>% #predict on new data
   select(recession_n, Pred) %>%
   unnest(cols = c(Pred))
 
