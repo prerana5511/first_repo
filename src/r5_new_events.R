@@ -15,6 +15,8 @@ library(patchwork)
 
 hobo_events <- readRDS(paste0(here, "/output/hobo_events.Rds"))
 
+ppt_events_r5 <- read_csv(paste0(here, "/output/ppt_events.csv"))
+
 
 #to avoid weird issues with Excel formating, use csv for importing. 
 #Example csv I created quickly
@@ -63,6 +65,11 @@ for(i in sites) {
 rm(ts, int, interval)
 #Check and correct timezone
 tz(hobo_events_new$dt)
+
+
+write_csv(hobo_events_new,
+          paste0(here,"/data/rec_values.csv"))
+
 
 
 xts <- xts(hobo_events_new %>% select(dt, yield_mm), order.by=hobo_events_new$dt)
@@ -195,21 +202,16 @@ ppt_daily_api_events2 <- ppt_daily_api_events %>%
 
 
 
-
-
-hourly_ppt_events <- slice(ppt, 0) 
-
-for (i in 1:length(curve_intervals2$event_n)) {
-  interval <- ppt %>%
-    filter( datetime_EST2 %within% curve_intervals2$datetime_interval_EST[i]) %>% 
-    mutate(event_n = curve_intervals2$event_n[i]) %>%
-    mutate(recession_n = curve_intervals2$recession_n[i])
-  
-  hourly_ppt_events <- bind_rows(hourly_ppt_events, interval)
-}
-
-
-
+# hourly_ppt_events <- slice(ppt, 0)
+# 
+# for (i in 1:length(curve_intervals2$event_n)) {
+#   interval <- ppt %>%
+#     filter( datetime_EST2 %within% curve_intervals2$datetime_interval_EST[i]) %>%
+#     mutate(event_n = curve_intervals2$event_n[i]) %>%
+#     mutate(recession_n = curve_intervals2$recession_n[i])
+#   
+#   hourly_ppt_events <- bind_rows(hourly_ppt_events, interval)
+# }
 
 
 
@@ -336,75 +338,99 @@ ggsave(filename = "ei_m_SF.png", plot = p2, path = paste0(here, "/output/figs/")
 
 
 
-all_events2<- inner_join(hourly_ppt_events, hobo_events_new,
-                         by = c( "recession_n"))%>%
-  group_by(site)%>%
-  mutate(yld_mm_norm1 = yield_mm - min(yield_mm),
-         yld_mm_norm2 = yld_mm_norm1/max(yld_mm_norm1)) %>%
-  ungroup()
+# hobo_events_new3 <-hobo_events_new%>%
+#   rename("Event"="hobo_event_n",)%>%
+#   mutate(yld_mm_norm1 = yield_mm - min(yield_mm),
+#          yld_mm_norm2 = yld_mm_norm1/max(yld_mm_norm1))%>%
+#   distinct(yld_mm_norm2, .keep_all = TRUE)
+
+
+
+# 
+# all_events2<- inner_join(ppt_events_r5, hobo_events_new3,
+#                          by = c( "Event"))%>%
+#   select(Event,datetime_EST2,W9_Precipitation_mm, dt, site, yield_mm, recession_n)%>%
+#   mutate(yld_mm_norm1 = yield_mm - min(yield_mm),
+#          yld_mm_norm2 = yld_mm_norm1/max(yld_mm_norm1))%>%
+#   distinct(yld_mm_norm2, .keep_all = TRUE)
 
 
 
 
-event8a <- all_events2%>%
-  # filter(!str_detect(site, "TF"))%>%
-  filter(event_n == 1)%>%
-  pivot_wider(names_from = "site", values_from = "yld_mm_norm2")%>%
-  pivot_longer(cols = c("SF-A","SF-C") , names_to = "Sugar_Maple",
-                 values_to = "SM_yield")%>%
-  pivot_longer(cols = c("SF-B", "SF-D") , names_to = "Yellow_Birch",
-                 values_to = "YB_yield")%>%
-  pivot_longer(cols = c("SM_yield","YB_yield") , names_to = "stemflow",
-                 values_to = "SF_yield")%>%
-  pivot_longer(cols = c("TF-B","TF-D") , names_to = "Throughfall", 
-               values_to = "TF_yield")%>%
-  distinct(SF_yield,TF_yield, .keep_all = TRUE)
-
-event8b <- event8a %>%
-  pivot_longer(cols = c("SF_yield","TF_yield") , names_to = "Flowpath", 
-               values_to = "flowpath_yield")%>%
-  distinct(flowpath_yield, .keep_all = TRUE)
 
 
-event8 <-inner_join(event8a,event8b,
-                     by = c( "recession_n", "datetime_EST","datetime_EST2","dt",
-                             "W9_Precipitation_mm","event_n", "yield_mm",
-                             "Sugar_Maple", "Yellow_Birch", "stemflow",
-                             "Throughfall","hobo_event_n"))
 
 
-ev8_ppt <-ggplot(event8, mapping = aes(x= datetime_EST2, y= W9_Precipitation_mm))+ 
-  # geom_point()
-  geom_bar(stat='identity')
-ev8_hobo_FP <-ggplot(event8, mapping = aes(x= datetime_EST2 , y= flowpath_yield,
-                                           color=Flowpath))+ 
-  geom_point()
-ev8_hobo_SF <-ggplot(event8, mapping = aes(x= datetime_EST2, y= SF_yield, color=stemflow))+ 
-  geom_point()
 
-p1 <- ev8_ppt+ ev8_hobo_FP + ev8_hobo_SF + plot_layout(ncol=1) 
 
-p1
 
-ev8_ppt <-ggplot(event8, mapping = aes(x= dt, y= W9_Precipitation_mm))+ 
-  # geom_point()
-  geom_bar(stat='identity')
-ev8_hobo_FP <-ggplot(event8, mapping = aes(x= dt , y= flowpath_yield,
-                                           colour=Flowpath))+ 
-  geom_point()
-ev8_hobo_SF <-ggplot(event8, mapping = aes(x= dt , y= SF_yield, color=stemflow))+ 
-  geom_point()
 
-p2 <- ev8_ppt+ev8_hobo_FP + ev8_hobo_SF + plot_layout(ncol=1) 
 
-p2
 
-ggsave(filename = "ppt_time.png", plot = p1, path = paste0(here, "/output/figs/"),
-       device = "png")
 
-ggsave(filename = "hobo_time.png", plot = p2, path = paste0(here, "/output/figs/"),
-       device = "png")
 
+
+
+
+
+
+
+
+# event8_TF_rec <- hobo_events_new3%>%
+#   filter(str_detect(site, "TF"))%>%
+#   filter(Event== 1)%>%
+#   select(Rec_yld_norm,site, rec_dt, Event, Recession_yield)%>%
+#   pivot_wider(names_from = "site", values_from = "Rec_yld_norm")%>%
+#   pivot_longer(cols = c("TF-B","TF-D") , names_to = "Throughfall",
+#                values_to = "TF_yield")%>%
+#   distinct(TF_yield, .keep_all = TRUE)
+# 
+# 
+# event8_TF_event <-hobo_events3 %>%
+#   filter(str_detect(site, "TF"))%>%
+#   filter(Event== 1)%>%
+#   select(Ev_yld_norm,site, Event_dt, Event, Event_yield)%>%
+#   pivot_wider(names_from = "site", values_from = "Ev_yld_norm")%>%
+#   pivot_longer(cols = c("TF-B","TF-D") , names_to = "Throughfall",
+#                values_to = "TF_yield")%>%
+#   distinct(TF_yield, .keep_all = TRUE)
+#   
+# 
+# 
+# 
+# 
+# 
+# event8_TF <- inner_join(event8_TF_rec , event8_TF_event,
+#                       by = c(  "Event"))%>%
+#   filter(Event_dt == rec_dt)
+# 
+# 
+# 
+# ev8_ppt <-ggplot(ppt_events_r5%>%filter(Event == 1), mapping = aes(x= datetime_EST2, y= W9_Precipitation_mm))+ 
+#   # geom_point()
+#   geom_bar(stat='identity')
+# 
+# 
+# ev8_hobo_SF <-ggplot(event8_SF, mapping = aes(x= rec_dt))+
+#   # geom_point(aes(y= Event_yield,color= stemflow.y))+
+#   geom_point(aes(y= Event_yield, color = 'red'))+
+#   geom_point(aes(y= Recession_yield, colour = 'blue'))
+#   
+#                                          
+# ev8_hobo_SF <-ggplot(event8, mapping = aes(x= dt, y= SF_yield, color=stemflow))+ 
+#   geom_point()
+# 
+# p1 <- ev8_ppt+ ev8_hobo_FP + ev8_hobo_SF + plot_layout(ncol=1) 
+# 
+# p1
+# 
+# 
+# 
+# ggsave(filename = "ppt_time.png", plot = p1, path = paste0(here, "/output/figs/"),
+#        device = "png")
+# 
+# 
+# 
 
 
 
