@@ -145,4 +145,4 @@ event_summary<- inner_join(ppt_events, ppt_interval2,
 all_events<-inner_join(ppt_api_events2, event_summary,
                        by = c( "Event"))
 
-
+write_csv(all_events, paste0(here, "/output/table1.csv"))
