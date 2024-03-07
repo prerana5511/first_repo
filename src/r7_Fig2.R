@@ -10,13 +10,15 @@ library(readxl)
 library(scales)
 library(patchwork)
 
-ppt_events_r7 <- read_csv(paste0(here, "/output/ppt_events.csv"))
+ppt_events_r7 <- read_csv(paste0(here, "/output/ppt_events.csv"))%>%
+  select(Event, datetime_EST2, W9_Precipitation_mm)%>%
+  drop_na()
 
 ppt_interval <- read_csv(paste0(here, "/data/ppt_interval_fomatted.csv"))
 
 hobo_events <- readRDS(paste0(here, "/output/hobo_events.Rds"))
 
-hobo_events_new <-read_csv(paste0(here, "/data/rec_values.csv"))
+hobo_events_rec <-read_csv(paste0(here, "/data/rec_values.csv"))
 
 
 tz(ppt_interval$Start_dt_EST) #imported time zone is UTC
@@ -65,12 +67,12 @@ for (i in 1:length(ppt_intervals2$Event)) {
 
 
 
-hobo_events_new3 <-hobo_events_new%>%
+hobo_events_rec2 <-hobo_events_rec%>%
   rename("Recession_yield"="yield_mm","Event"="hobo_event_n")
 
 
 #Full joining hobo events within ppt interval and Rec events
-hobo_events_new4 <-full_join(hobo_from_ppt_events , hobo_events_new3,
+hobo_events_rec3 <-full_join(hobo_from_ppt_events , hobo_events_rec2,
                              by = c(  "dt", "site","Event"))%>%
   select(-Start_dt_EST, -End_dt_EST, -datetime_interval_EST,-event_dur_sec,-Notes )%>%
   group_by(recession_n)%>%
@@ -94,7 +96,7 @@ hobo_events4 <- full_join(hobo_from_ppt_events , hobo_events3,
 
 
 #For Recession_n event
-event8_SF_rec <- hobo_events_new4%>%
+event8_SF_rec <- hobo_events_rec3%>%
   filter(!str_detect(site, "TF"))%>%
   select(Rec_yld_norm,site, recession_n, dt, Event, Recession_yield, yield_mm)%>%
   pivot_wider(names_from = "site", values_from = "Rec_yld_norm")%>%
@@ -167,7 +169,7 @@ ggsave(filename = "hobo_n_ppt_SF.png", plot = p1, path = paste0(here, "/output/f
 
 #Throughfall
 
-event8_TF_rec <- hobo_events_new4%>%
+event8_TF_rec <- hobo_events_rec3%>%
   filter(str_detect(site, "TF"))%>%
   # filter(Event== 4)%>%
   select(Rec_yld_norm,site, recession_n, dt, Event, Recession_yield, yield_mm)%>%
