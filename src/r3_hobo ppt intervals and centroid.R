@@ -15,11 +15,10 @@ ppt <- precip %>%
          datetime_EST2 = as.POSIXct(datetime_EST, format = "%m/%d/%Y %H:%M"))
 
 
-ppt2 <- ppt %>% select(datetime_EST2, W9_Precipitation_mm)
-precip_xts <- xts(ppt2, order.by=ppt$datetime_EST2)
-dygraph(precip_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+precip_xts <- xts(ppt%>% select(datetime_EST2, W9_Precipitation_mm), order.by=ppt$datetime_EST2)
+dygraph(precip_xts) %>% #dyAxis("y", valueRange = c(-1, 1)) %>%
   dyRangeSelector()
-all <- ppt2 %>% rename("dt" = datetime_EST2) %>%
+all <- ppt %>% select(datetime_EST2, W9_Precipitation_mm) %>% rename("dt" = datetime_EST2) %>%
   drop_na()
 
 
@@ -40,7 +39,7 @@ all3 <- all2 %>%
   
   
   
-ppt3 <- ppt2%>%
+ppt3 <- ppt%>%
   pivot_longer(cols = contains("W9"), names_to = "site", 
                values_to = "yield_mm") %>%
   group_by(site) 
@@ -102,7 +101,7 @@ ppt_events <- slice(ppt_intervals2, 0)
 
 
 for (i in 1:length(ppt_intervals2$Event)) {
-  interval <- ppt2 %>%
+  interval <- ppt %>%
     filter(datetime_EST2 %within% ppt_intervals2$datetime_interval_EST[i]) %>% 
     mutate(Event = ppt_intervals2$Event[i])
   
@@ -259,13 +258,6 @@ time_lag_cal_Flowpath <-inner_join(Flowpath , centroid,
 
 
 ppt_events7 <-inner_join(ppt_events_summry2, time_lag_cal_Flowpath,
-                         by = c("Event")) %>%
-  group_by(site, Event)%>%
-  distinct(across(Event),.keep_all = TRUE)
-
-ggplot(ppt_events7, aes(x= time_lag_duration, y= event_intensity, colour = site)) +
-  geom_point()
-
 
 
 
