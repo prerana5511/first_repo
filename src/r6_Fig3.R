@@ -12,30 +12,30 @@ library(scales)
 library(patchwork)
 
 
-hobo_rec_events <- read_csv(paste0(here, "/data/rec_values.csv"))
+hobo_rec_events <- read_csv(paste0(here, "/data/rec_values.csv"))%>%
+  mutate(across(.cols = lubridate::is.POSIXct,
+                ~ lubridate::with_tz(., tzone='EST')))
 
 
 #norm
-rec_norm <- hobo_rec_events  %>%
+rec_norm <- hobo_rec_events%>%
+  group_by(recession_n)%>%
   mutate(sec = seconds(dt) - min(seconds(dt)),
          sec_norm = sec/max(sec),
          yld_mm_norm1 = yield_mm - min(yield_mm),
          yld_mm_norm2 = yld_mm_norm1/max(yld_mm_norm1),
          power_yield = 10^yld_mm_norm2)%>%
-  pivot_wider(names_from = "site", values_from = "power_yield")%>%
-  pivot_longer(cols = c("TF-B","TF-D") , names_to = "Throughfall",
-               values_to = "TF_yield")%>%
-  pivot_longer(cols = c("SF-A","SF-C") , names_to = "SM",
-               values_to = "SM_yield")%>%
-  pivot_longer(cols = c("SF-B","SF-D") , names_to = "YB",
-               values_to = "YB_yield")%>%
-  pivot_longer(cols = c("TF_yield","SM_yield","YB_yield") , names_to = "site",
-               values_to = "power_yield")%>%
-  select(-Throughfall, -SM, -YB)%>%
+  mutate(site = recession_n)%>%
+  mutate(site = case_when(str_detect(site, "SFA") ~ "SM",
+                          str_detect(site, "SFB") ~ "YB",
+                          str_detect(site, "SFC") ~ "SM",
+                          str_detect(site, "SFD") ~ "YB",
+                          str_detect(site, "TFB") ~ "TF",
+                          str_detect(site, "TFD") ~ "TF"))%>%
+  # select(-TF, -SM, -YB)%>%
+  ungroup()%>%
   distinct(across(power_yield), .keep_all = TRUE)%>%
   drop_na()
-
-  
 
 
 
@@ -51,45 +51,61 @@ nested_rec_events <- rec_norm %>%
          m = map_dbl(data, ~lm(power_yield~ sec_norm, data = .)$coefficients[[2]]),
          i = map_dbl(data, ~lm(power_yield ~ sec_norm, data = .)$coefficients[[1]]),
          r2 = r^2) %>% 
-  
   unnest(data) %>%
+  # mutate(results = sec_norm * m+ i)%>%
   ungroup() %>%
   distinct(across(recession_n), .keep_all = TRUE)
 
 
+write_csv(nested_rec_events,
+          paste0(here,"/data/rec_model.csv"))
 
 
-# newdat <- data.frame(sec_norm=nested_rec_events$sec_norm[1:81])
 
+#Pred
 model_rec_events <- rec_norm %>%
   dplyr::group_by(recession_n)%>%
   nest() %>%
-  mutate(m1 = purrr::map(.x = data, .f = ~ lm(power_yield~ sec_norm, data = .))) %>%
-  mutate(Pred = purrr::map2(.x = m1, .y = data, ~ predict.lm(object =.x))) %>% #predict on new data
-  select(recession_n, Pred) %>%
-  unnest(cols = c(Pred))
+  mutate(m1 = purrr::map(.x = data, .f = ~ lm(power_yield~ sec_norm, data = .)),
+         glance = map(.x = m1, .f = ~broom::glance(.x)),
+         preds = map(m1, broom::augment),
+         r = map_dbl(.x = data, .f = ~cor(.x$power_yield, .x$sec_norm, use="complete.obs")),
+         RMSE = map_dbl(preds, .f = ~sqrt(mean(.x$.resid^2)))) %>%
+  # unnest(preds)%>%
+  unnest(preds)%>%
+  ungroup()
+  # mutate(Pred = purrr::map2(.x = m1, .y = data, ~ predict.lm(object =.x))) %>% #predict on new data
+  # select(recession_n, Pred) %>%
+  # unnest(cols = c(Pred))
 
 
 
-#Rate for SF-A
-
-# pred_rec_events <- read_csv(paste0(here, "/data/pred.csv"))
-
-norm_rec_events <-inner_join(nested_rec_events, model_rec_events,
-                             by = c("recession_n"))%>%
-  select(recession_n, sec_norm, Pred, site , dt, hobo_event_n)
-  # pivot_wider(names_from = "site", values_from = "Pred")%>%
-  # pivot_longer(cols = c("TF-B","TF-D") , names_to = "Throughfall",
-  #                values_to = "TF_yield")%>%
-  # pivot_longer(cols = c("SF-A","SF-C") , names_to = "SM",
-  #              values_to = "SM_yield")%>%
-  # pivot_longer(cols = c("SF-B","SF-D") , names_to = "YB",
-  #              values_to = "YB_yield")%>%
-  # pivot_longer(cols = c("TF_yield","SM_yield","YB_yield") , names_to = "site",
-  #              values_to = "Pred")
 
 
-ggplot(norm_rec_events) +
-  geom_point(mapping = aes(x=sec_norm, y=Pred,colour = site))+
+rate_convertion <- model_rec_events%>%
+  # select(-yield_mm, yld_mm_norm1, -yld_mm_norm2, -sec)%>%
+  mutate(hobo_event_n = recession_n)%>%
+  mutate(hobo_event_n = case_when(str_detect(hobo_event_n, "E1") ~ "1",
+                          str_detect(hobo_event_n, "E2") ~ "2",
+                          str_detect(hobo_event_n, "E3") ~ "3",
+                          str_detect(hobo_event_n, "E4") ~ "4",
+                          str_detect(hobo_event_n, "E5") ~ "5",
+                          str_detect(hobo_event_n, "E6") ~ "6",
+                          str_detect(hobo_event_n, "E7") ~ "7",
+                          str_detect(hobo_event_n, "E8") ~ "8",
+                          str_detect(hobo_event_n, "E9") ~ "9"))%>%
+  mutate(site = recession_n)%>%
+  mutate(site = case_when(str_detect(site, "SFA") ~ "SM",
+                          str_detect(site, "SFB") ~ "YB",
+                          str_detect(site, "SFC") ~ "SM",
+                          str_detect(site, "SFD") ~ "YB",
+                          str_detect(site, "TFB") ~ "TF",
+                          str_detect(site, "TFD") ~ "TF"))%>%
+  mutate(rate_yld = .fitted - lag(.fitted))
+
+
+
+ggplot(rate_convertion) +
+  geom_point(mapping = aes(x=sec_norm, y=rate_yld,colour = site))+
   facet_wrap(~ hobo_event_n, scales = "free")
 

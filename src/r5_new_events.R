@@ -29,7 +29,11 @@ curve_intervals2 <- curve_intervals %>%
          datetime_interval_EST = lubridate::interval(start = Start_dt_EST,
                                                      end = End_dt_EST,
                                                      tz = "EST"),
-         event_dur_sec = dseconds(datetime_interval_EST))
+         event_dur_sec = dseconds(datetime_interval_EST),
+         event_dur_num = as.numeric(event_dur_sec))
+
+write_csv(curve_intervals2,
+          paste0(here,"/data/curve_intervals.csv"))
 # tz(curve_intervals2$datetime_interval_EST)
 sapply(curve_intervals2, class)
 
