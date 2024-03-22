@@ -1,4 +1,3 @@
-
 library(here)
 here <- here()
 here
@@ -38,44 +37,12 @@ ppt_interval2 <- ppt_interval%>%
 #load API function
 source(paste0(here, "/src/API.R"))
 
-# #Daily API
-# ppt_daily <- ppt %>%
-#   mutate(date = as.Date(datetime_EST2)) %>%
-#   group_by(date)%>%
-#   nest() %>%
-#   mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
-#   mutate(data = map(data, ~summarise(.x, across(where(is.numeric), sum))))%>%
-#   unnest_wider(data) %>% 
-#   ungroup()%>%
-#   mutate(date = as.POSIXct(date))
-# 
-# sapply(ppt_daily, class)
 
 
 ppt_api <- ppt %>% 
   arrange(datetime_EST2) %>% 
   mutate(api_30d = getApi(W9_Precipitation_mm, k = 0.9, n = 30, finite = TRUE))
 
-
-# ppt_daily_api <- ppt_daily %>% 
-#   arrange(date) %>% 
-#   mutate(api_30d = getApi(W9_Precipitation_mm, k = 0.9, n = 30, finite = TRUE),
-#          dt_start = force_tz(as_datetime(date), "EST"),
-#          dt_end = force_tz(as_datetime(date) + hours(23) + minutes(59) + seconds(59),
-#                            "EST"),
-#          dt_interval = interval(dt_start, dt_end))
-
-
-# curve_intervals <- read_csv(paste0(here, "/data/hobo_new_utf.csv"))
-# tz(curve_intervals$Start_dt_EST)
-# curve_intervals2 <- curve_intervals %>% 
-#   mutate(across(.cols = lubridate::is.POSIXct,
-#                 ~ lubridate::force_tz(., tzone='EST'))) %>% 
-#   mutate(.after = End_dt_EST,
-#          datetime_interval_EST = lubridate::interval(start = Start_dt_EST,
-#                                                      end = End_dt_EST,
-#                                                      tz = "EST"),
-#          event_dur_sec = dseconds(datetime_interval_EST))
 
 #Filtering daily API events
 ppt_api_events <- slice(ppt_api, 0) 
@@ -99,19 +66,6 @@ ppt_api_events2 <- ppt_api_events%>%
   ungroup()%>%
   rename("Event" = "event_n")
   
-  
-  
-
-# 
-# #There are multiple SF/TF collector events per one ppt record, so there are only 58 periods in the daily ppt record that correspond to the 89 SF/TF event periods
-# 
-# ppt_api_events2 <- ppt_daily_api_events %>% 
-#   distinct(event_n, .keep_all = TRUE)%>%
-#   rename("Event" = "event_n")
-#   # select(c(event_n, contains("api")))
-
-
-
 
 
 #Filtering daily API events
@@ -127,8 +81,6 @@ for (i in 1:length(ppt_interval2$Event)) {
 }
 
 
-  
-  
 
 event_summary<- inner_join(ppt_events, ppt_interval2,
                               by = c( "Event"))%>%

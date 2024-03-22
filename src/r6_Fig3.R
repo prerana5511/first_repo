@@ -11,13 +11,60 @@ library(readxl)
 library(scales)
 library(patchwork)
 
+#HOBO EVENT CURVES
+
+hobo_events <- readRDS(paste0(here, "/output/hobo_events.Rds"))
+
+#event_norm
+event_norm <- hobo_events%>%
+  group_by(hobo_event_n)%>%
+  mutate(sec = seconds(dt) - min(seconds(dt)),
+         sec_norm = sec/max(sec),
+         yld_mm_norm1 = yield_mm - min(yield_mm),
+         yld_mm_norm2 = yld_mm_norm1/max(yld_mm_norm1),
+         power_yield = 10^yld_mm_norm2)%>%
+  mutate(site = case_when(site == "SFA_mm" ~ "SF-A",
+                          site == "SFB_mm" ~ "SF-B",
+                          site == "SFC_mm" ~ "SF-C",
+                          site == "SFD_mm" ~ "SF-D",
+                          site == "TFB_mm" ~ "TF-B",
+                          site == "TFD_mm" ~ "TF-D"))%>%
+  ungroup()%>%
+  distinct(across(power_yield), .keep_all = TRUE)%>%
+  drop_na()
+
+
+#linear models for hobo events
+nested_events <- event_norm %>%
+  drop_na()%>%
+  select(-site)%>%
+  group_by(hobo_event_n) %>%
+  nest() %>%
+  mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x))) %>%
+  mutate(mod = map(data, ~lm(power_yield ~ sec_norm, data= .)),
+         r = map_dbl(.x = data, .f = ~cor(y=(.x$power_yield), x = .x$sec_norm,
+                                          use = "na.or.complete")),
+         m = map_dbl(data, ~lm(power_yield~ sec_norm, data = .)$coefficients[[2]]),
+         i = map_dbl(data, ~lm(power_yield ~ sec_norm, data = .)$coefficients[[1]]),
+         r2 = r^2) %>% 
+  unnest(data) %>%
+  ungroup()%>%
+  distinct(across(hobo_event_n), .keep_all = TRUE)
+
+
+write_csv(nested_events,
+          paste0(here,"/data/event_model.csv"))
+
+
+
+#RECESSION CURVES
 
 hobo_rec_events <- read_csv(paste0(here, "/data/rec_values.csv"))%>%
   mutate(across(.cols = lubridate::is.POSIXct,
                 ~ lubridate::with_tz(., tzone='EST')))
 
 
-#norm
+#rec_norm
 rec_norm <- hobo_rec_events%>%
   group_by(recession_n)%>%
   mutate(sec = seconds(dt) - min(seconds(dt)),
@@ -39,7 +86,7 @@ rec_norm <- hobo_rec_events%>%
 
 
 
-#linear models
+#linear models for recession n
 nested_rec_events <- rec_norm %>%
   drop_na()%>%
   group_by(recession_n) %>%
@@ -52,8 +99,7 @@ nested_rec_events <- rec_norm %>%
          i = map_dbl(data, ~lm(power_yield ~ sec_norm, data = .)$coefficients[[1]]),
          r2 = r^2) %>% 
   unnest(data) %>%
-  # mutate(results = sec_norm * m+ i)%>%
-  ungroup() %>%
+  ungroup()%>%
   distinct(across(recession_n), .keep_all = TRUE)
 
 
