@@ -1,0 +1,1169 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+#0.0 Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+here <- here()
+here
+library(tidyverse)
+library(lubridate)
+# library(dplyr)
+# library(readr)
+# library(tidyr)
+# library(purrr)
+library(fs)
+library(xts)
+library(dygraphs)
+library(readxl)
+#library(ggplot2)
+library(scales)
+
+
+#Load import function
+source(paste0(here, "/src/hobo_import.R"))
+#Load a table of constants to use in calculations below
+const <- readRDS(paste0(here,"/data/TF_SF_const.Rds"))
+```
+
+
+#1.0 Import hobo records, convert to yields
+```{r}
+
+#SF-A-----
+site <- "SF-A"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["SF_L_mm"]], #0.05 L/mm depth in bucket
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["SF_A_CA_mm2"]])  #water yield normalized to tree canopy area 
+
+#plot
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+
+#SF-B-----
+site <- "SF-B"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["SF_L_mm"]], #0.05 L/mm depth in bucket
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["SF_B_CA_mm2"]],#water yield normalized to tree canopy area 
+         yield_mm_hobo_zeroed = case_when(yield_mm_hobo < 0 ~ 0.0,
+                                          TRUE ~ yield_mm_hobo))
+
+hobo_3 <- hobo_2 %>% 
+  mutate(dt_hr = round_date(dt, unit = "hour")) %>% 
+  group_by(dt_hr) %>% 
+  summarise(yield_mm_hobo_hr = sum(yield_mm_hobo_zeroed)) %>% 
+  ungroup()
+
+#plot
+hobo_3_xts <- xts(hobo_3 %>% select(dt_hr, yield_mm_hobo_hr), order.by=hobo_3$dt_hr)
+dygraph(hobo_3_xts) %>% #dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+  
+
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+
+
+
+
+#SF-C-----
+site <- "SF-C"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["SF_L_mm"]], #0.05 L/mm depth in bucket
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["SF_C_CA_mm2"]])  #water yield normalized to tree canopy area 
+
+#plot
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+
+
+
+
+#SF-D-----
+site <- "SF-D"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["SF_L_mm"]], #0.05 L/mm depth in bucket
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["SF_D_CA_mm2"]])  #water yield normalized to tree canopy area 
+
+#plot
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+
+
+
+#TF-B-----
+site <- "TF-B"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["TF_L_mm"]], #0.09 L/mm depth in Trash bin
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["TFB_D_Area_mm2"]])  #water yield normalized to tree canopy area 
+
+#plot
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+
+
+
+#TF-D-----
+site <- "TF-D"
+#get file paths
+paths <- dir_ls(paste0(here, "/data/hobo/pressure_corrected/",
+                       site, "/"))
+#row bind results of import function
+hobo <- map_dfr(paths, hobo_import)
+#Calculate yields
+hobo_2 <- hobo %>% 
+  mutate(vol_L = depth_m*1000 * const$val[["TF_L_mm"]], #0.09 L/mm depth in Trash bin
+         vol_mm3 = vol_L * 1E+6, #1000000mm^3/L
+         yield_mm_hobo = vol_mm3/const$val[["TFB_D_Area_mm2"]])  #water yield normalized to tree canopy area 
+
+#plot
+plot(hobo_2$yield_mm_hobo ~ hobo_2$dt)
+
+dir_create(paste0(here, "/output/hobo_imported/", site))
+
+#save imported hobo record
+saveRDS(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+write_csv(hobo_2, paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.csv"))
+
+rm(hobo, hobo_2, site, paths)
+
+```
+
+##1.1 Browse time series to select events manually
+```{r}
+
+site <- "SF-A"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo2 %>% rename("SFA_mm" = yield_mm_hobo)
+
+site <- "SF-B"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo_all %>% full_join(., hobo2 %>% 
+                                     rename("SFB_mm" = yield_mm_hobo),
+                                   by = "dt")
+
+
+
+site <- "SF-C"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo_all %>% full_join(., hobo2 %>% 
+                                     rename("SFC_mm" = yield_mm_hobo),
+                                   by = "dt")
+
+
+site <- "SF-D"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo_all %>% full_join(., hobo2 %>% 
+                                     rename("SFD_mm" = yield_mm_hobo),
+                                   by = "dt")
+site <- "TF-B"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo_all %>% full_join(., hobo2 %>% 
+                                     rename("TFB_mm" = yield_mm_hobo),
+                                   by = "dt")
+
+site <- "TF-D"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+hobo2 <- hobo %>% select(dt, yield_mm_hobo)
+hobo_xts <- xts(hobo2, order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+hobo_all <- hobo_all %>% full_join(., hobo2 %>% 
+                                     rename("TFD_mm" = yield_mm_hobo),
+                                   by = "dt")
+
+#interactive plot of throughfall
+hobo_all_xts <- xts(hobo_all %>% select(dt, TFB_mm, TFD_mm),
+                    order.by=hobo_all$dt)
+dygraph(hobo_all_xts) %>% dyAxis("y", valueRange = c(-1, 100)) %>% 
+  dyRangeSelector() %>% dyOptions(useDataTimezone = TRUE)
+
+#interactive plot of stemflow
+hobo_all2_xts <- xts(hobo_all %>% select(dt, SFA_mm, SFB_mm, SFC_mm, SFD_mm),
+                     order.by=hobo_all$dt)
+dygraph(hobo_all2_xts) %>% dyAxis("y", valueRange = c(-0.1, 1)) %>% 
+  dyRangeSelector() %>% dyOptions(useDataTimezone = TRUE)
+
+saveRDS(hobo_all, paste0(here,"/output/hobo_compiled_wide.Rds"))
+
+```
+
+
+#2.0 Import selected event intervals
+```{r}
+#Import stemflow and throughfall time intervals
+r2_events <- readxl::read_excel(paste0(here, "/data/hobo/hobo_events.xlsx"))
+tz(r2_events$start_time_EST) #imported time zone is UTC
+
+sapply(r2_events, class)
+r2_events2 <- r2_events %>% 
+  mutate(across(.cols = lubridate::is.POSIXct,
+                ~ lubridate::force_tz(., tzone='EST'))) %>% 
+  mutate(.after = end_time_EST,
+         datetime_interval_EST = lubridate::interval(start = start_time_EST,
+                                                      end = end_time_EST,
+                                                      tz = "EST"),
+         event_dur_sec = dseconds(datetime_interval_EST))
+  
+class(r2_events2$datetime_interval_EST)
+tz(r2_events2$datetime_interval_EST) #timezone of interval gives an error
+tz(r2_events2$start_time_EST) #timezone of start is EST
+view(r2_events2)    
+
+#To check the interval is in EST, we can pull out the start
+start <- int_start( r2_events2$datetime_interval_EST[1])
+class(start)
+tz(start)
+
+intervals <- r2_events2
+#save
+saveRDS(intervals, paste0(here, "/output/hobo_intervals.rds"))
+rm(r2_events, r2_events2)
+```
+
+
+#3.0 filter hobo record based on event intervals
+```{r}
+hobo_all <- readRDS(paste0(here,"/output/hobo_compiled_wide.Rds"))
+
+# hobo_rec <- hobo_all %>% 
+#   mutate(.after = TFD_mm, #indicates where the new column is placed
+#          dt2 = as.POSIXct(dt, format = "%m/%d/%Y %H:%M")) %>% 
+#   filter(minute(dt2) == 0) %>% #remove subhourly timestamps
+#   arrange(dt2) #Order from earliest to latest timestamp
+
+
+#create an empty dataframe with same headers
+hobo_events <- slice(hobo_all, 0) 
+
+
+
+for (i in 1:length(intervals$hobo_event_n)) {
+  interval <- hobo_all %>%
+    filter(dt %within% intervals$datetime_interval_EST[i]) %>% 
+    mutate(hobo_event_n = intervals$hobo_event_n[i])
+  
+  hobo_events <- bind_rows(hobo_events, interval)
+}
+
+#Check timezone
+tz(hobo_events$dt)
+#Now the hourly time series record is filtered with event numbers
+
+hobo_events2 <- hobo_events%>%
+  pivot_longer(cols = contains("_mm"), names_to = "site", 
+               values_to = "yield_mm")%>%
+  group_by(site, dt) %>% 
+  arrange(dt)%>% 
+  ungroup()%>% 
+  select(dt, site,  yield_mm, hobo_event_n)%>%
+  drop_na()
+
+
+
+# 
+ saveRDS(hobo_events2, paste0(here, "/output/hobo_events.Rds"))
+```
+
+#4.0 Visualization
+```{r}
+#load time series of just events
+hobo_events <- readRDS(paste0(here, "/output/hobo_events.Rds"))
+
+#convert water level yield (mm) to rates for all sites
+#pivot data long first
+hobo_events2 <- hobo_events %>% 
+  group_by(site, hobo_event_n) %>% 
+  arrange(dt) %>% 
+  mutate(rate_mm_5min = yield_mm - lag(yield_mm, order_by = dt),
+         rate_mm_5min_clean = case_when(rate_mm_5min < 0 | 
+                                          is.na(rate_mm_5min) ~ 0,
+                                        TRUE ~ rate_mm_5min)) %>% 
+  ungroup() %>% 
+  select(dt, site, hobo_event_n, yield_mm, rate_mm_5min_clean) %>% 
+  rename("cumyield_mm" = "yield_mm",
+         "rate_mm_5min" = "rate_mm_5min_clean")
+
+
+
+# flow_xts <- xts(hobo_events2 %>% select(dt, site, cumyield_mm),
+#                order.by=hobo_events2$dt)
+# 
+# dygraph(flow_xts) %>% dyAxis("y", valueRange = c(-1, 100)) %>%
+#   dyRangeSelector() %>% dyOptions(useDataTimezone = TRUE) %>%
+#   dySeries("cumyield_mm", stepPlot = TRUE, fillGraph = TRUE,
+#            color = "red")
+
+
+
+#Plot throughfall
+theme_set(theme_bw())
+ggplot(hobo_events2 %>% filter(str_detect(site, "TF"))) +
+  geom_line(mapping=aes(x=dt, y= cumyield_mm, color = site))+
+  facet_wrap(~hobo_event_n, scales = "free")
+
+#Plot stemflow
+ggplot(hobo_events2 %>% filter(!str_detect(site, "TF"))) +
+  geom_line(mapping=aes(x=dt, y= cumyield_mm, color = site))+
+  facet_wrap(~hobo_event_n, scales = "free")
+
+
+#normalization to remove negatives----
+
+hobo_norm<- hobo_events2 %>%
+  group_by(site)%>%
+  mutate(yield_norm = rate_mm_5min + abs(min(rate_mm_5min)))%>%
+  select(-rate_mm_5min)%>%
+  rename("yield_mm" = "yield_norm")
+
+
+#Smoothing----
+hobo_events3 <- hobo_norm %>%
+  mutate(roll_yield = rollmean(yield_mm, k = 3, fill = NA, align = "center"))
+
+
+saveRDS(hobo_events3, paste0(here, "/output/hobo_events_smooth.Rds"))
+
+
+#Stemflow Rates ----
+#RAW
+ggplot(hobo_events2 %>% filter(str_detect(site, "TF"))) +
+  geom_line(mapping=aes(x=dt, y= rate_mm_5min, color = site))+
+  facet_wrap(~hobo_event_n, scales = "free")
+
+#SMOOTH
+ggplot(hobo_events3 %>% filter(str_detect(site, "TF"))) +
+  geom_line(mapping=aes(x=dt, y= roll_yield, color = site))+
+  facet_wrap(~hobo_event_n, scales = "free")+
+  labs(x ="Datetime", y = "yield rate (smooth)")
+
+
+#Throughfall Rates ----
+#RAW
+ggplot(hobo_events2 %>% filter(!str_detect(site, "TF"))) +
+  geom_line(mapping=aes(x=dt, y= rate_mm_5min, color = site))+
+  facet_wrap(~hobo_event_n, scales = "free")
+
+#SMOOTH
+ggplot(hobo_events3 %>% filter(!str_detect(site, "TF"))) +
+  geom_line(mapping=aes(x=dt, y= roll_yield, color = site))+
+  facet_wrap(~hobo_event_n, scales = "free")+
+  labs(x ="Datetime", y = "yield rate (smooth)")
+
+
+tree_sp_r2 <- hobo_events3%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("SFA_mm","SFC_mm") , names_to = "Sugar",
+               values_to = "Sugar_Maple_mm")%>%
+  pivot_longer(cols = c("SFB_mm","SFD_mm") , names_to = "Yellow",
+               values_to = "Yellow_Birch_mm")%>%
+
+  pivot_longer(cols = c("Yellow_Birch_mm","Sugar_Maple_mm") , names_to = "Stemflow",
+               values_to = "stemflow_yield")%>%
+  pivot_longer(cols = c("TFB_mm","TFD_mm") , names_to = "Throughfall",
+               values_to = "throughfall_yield")%>%
+  select(-cumyield_mm, -yield_mm, -Sugar, -Yellow)
+
+
+stemflow_r2 <- tree_sp_r2%>%
+  filter(!is.na(stemflow_yield))%>%
+  select(-throughfall_yield, -Throughfall)
+
+
+throughfall_r2 <- tree_sp_r2%>%
+  filter(!is.na(throughfall_yield))%>%
+  select(-stemflow_yield, -Stemflow)
+
+
+tr <-hobo_events3%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("SFA_mm","SFC_mm") , names_to = "Sugar",
+               values_to = "Sugar_Maple_mm")%>%
+  pivot_longer(cols = c("SFB_mm","SFD_mm") , names_to = "Yellow",
+               values_to = "Yellow_Birch_mm")%>%
+   pivot_longer(cols = c("TFB_mm","TFD_mm") , names_to = "Throughfall",
+               values_to = "Throughfall_yield")%>%
+  select(dt, Sugar_Maple_mm, Yellow_Birch_mm, Throughfall_yield, hobo_event_n, cumyield_mm)%>%
+
+  pivot_longer(cols = c("Sugar_Maple_mm", "Throughfall_yield", "Yellow_Birch_mm") , names_to = "flowpath2",
+               values_to = "path_yield_rate")%>%
+  na.omit()
+#   #distinct(across(path_yield_rate), .keep_all = TRUE)
+
+
+mix <-inner_join(stemflow_r2, throughfall_r2,
+                         by = c("dt", "hobo_event_n")) %>%
+  select(-Stemflow, -Throughfall)%>%
+  pivot_longer(cols = c("stemflow_yield","throughfall_yield") , 
+               names_to = "flowpath", values_to = "path_yield_rate")%>%
+  distinct(across(path_yield_rate), .keep_all = TRUE)
+
+
+mix2 <-inner_join(mix, tr,
+                         by = c("dt", "hobo_event_n", "path_yield_rate")) %>%
+  distinct(across(path_yield_rate), .keep_all = TRUE)%>%
+  na.omit()
+
+
+hobo_event_summary <- mix2 %>% 
+  group_by(flowpath,flowpath2, hobo_event_n) %>% 
+  dplyr::summarise(event_yld_mm = max(cumyield_mm, na.rm=T),
+                   max_rate_mm_5min = max(path_yield_rate, na.rm = T),
+                   mean_rate_mm_5min = mean(path_yield_rate, na.rm=T))
+
+
+#Stemflow vs Throughfall event stats----
+ggplot( hobo_event_summary) +
+  geom_boxplot(mapping=aes(x=flowpath,y= max_rate_mm_5min)) +
+  geom_jitter(mapping=aes(x=flowpath, y= max_rate_mm_5min, group = flowpath2, colour= flowpath2))
+
+
+ggplot( hobo_event_summary) +
+  geom_boxplot(mapping=aes(x=flowpath,y= mean_rate_mm_5min)) +
+  geom_jitter(mapping=aes(x=flowpath, y= mean_rate_mm_5min, group = flowpath2, colour= flowpath2))
+
+
+ggplot( hobo_event_summary) +
+  geom_boxplot(mapping=aes(x=flowpath,y= event_yld_mm)) +
+  geom_jitter(mapping=aes(x=flowpath, y= event_yld_mm, group = flowpath2, colour= flowpath2))
+
+
+```
+
+
+
+#5.0 Calculate event statistics for Sugar Maple and Yellow Birch
+```{r}
+
+  
+#yellow birch and sugar maple----  
+tr1 <-hobo_events3%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("SFA_mm","SFC_mm") , names_to = "Sugar", 
+               values_to = "Sugar_Maple_mm")%>%
+  pivot_longer(cols = c("SFB_mm","SFD_mm") , names_to = "Yellow", 
+               values_to = "Yellow_Birch_mm")%>%
+  select(Sugar,Sugar_Maple_mm,Yellow, Yellow_Birch_mm, hobo_event_n, dt, cumyield_mm)
+
+yb <-tr1 %>%
+  group_by(Yellow, hobo_event_n)%>%
+  select(-Sugar_Maple_mm, -Sugar)%>%
+  distinct(across(Yellow_Birch_mm), .keep_all = TRUE)%>%
+  na.omit()
+  
+sm <-tr1 %>%
+  select(-Yellow_Birch_mm, -Yellow)%>%
+  group_by(Sugar, hobo_event_n)%>%
+  distinct(across(Sugar_Maple_mm), .keep_all = TRUE)%>%
+  na.omit()
+
+hobo_event_summary_yb <- yb %>% 
+  group_by(Yellow, hobo_event_n) %>% 
+  dplyr::summarise(event_yld_mm = max(cumyield_mm, na.rm=T),
+                   max_rate_mm_5min = max(Yellow_Birch_mm, na.rm = T),
+                   mean_rate_mm_5min = mean(Yellow_Birch_mm, na.rm=T))
+
+hobo_event_summary_sm <- sm %>% 
+  group_by(Sugar, hobo_event_n) %>% 
+  dplyr::summarise(event_yld_mm = max(cumyield_mm, na.rm=T),
+                   max_rate_mm_5min = max(Sugar_Maple_mm, na.rm = T),
+                   mean_rate_mm_5min = mean(Sugar_Maple_mm, na.rm=T))
+
+mix3 <- inner_join(sm, yb,
+                         by = c("dt", "hobo_event_n"))%>%
+  pivot_longer(cols = c("Sugar_Maple_mm","Yellow_Birch_mm") , names_to = "Species", 
+               values_to = "Yield_rate")%>%
+  select(-Sugar, -Yellow)%>%
+  distinct(across(Yield_rate), .keep_all = TRUE)%>%
+  na.omit()
+
+stemflow_from_site <- hobo_events3 %>%
+  filter(!str_detect(site, "TF"))%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("SFA_mm","SFB_mm", "SFC_mm", "SFD_mm") , names_to = "stemflow", 
+               values_to = "Yield_rate")%>%
+  na.omit()
+  
+  
+
+
+mix4 <- inner_join(mix3, stemflow_from_site,
+                         by = c("dt", "hobo_event_n","Yield_rate"))
+
+  
+
+hobo_event_summary_SMYB <- mix4 %>% 
+  group_by(Species, stemflow, hobo_event_n) %>% 
+  dplyr::summarise(event_yld_mm = sum(cumyield_mm, na.rm=T),
+                   max_rate_mm_5min = max(Yield_rate, na.rm = T),
+                   mean_rate_mm_5min = mean(Yield_rate, na.rm=T))%>%
+  filter(event_yld_mm != 0)
+
+
+#SM vs YB Event Stats ----
+ggplot( hobo_event_summary_SMYB) +
+  geom_boxplot(mapping=aes(x=Species,y= event_yld_mm)) +
+  geom_jitter(mapping=aes(x=Species, y= event_yld_mm, group = stemflow, colour= stemflow))
+
+ggplot( hobo_event_summary_SMYB) +
+  geom_boxplot(mapping=aes(x=Species,y= max_rate_mm_5min)) +
+  geom_jitter(mapping=aes(x=Species, y= max_rate_mm_5min, group = stemflow, colour= stemflow))
+
+ggplot(hobo_event_summary_SMYB) +
+  geom_boxplot(mapping=aes(x=Species,y= mean_rate_mm_5min)) +
+  geom_jitter(mapping=aes(x=Species, y= mean_rate_mm_5min, group = stemflow, colour= stemflow))
+
+
+
+
+throughfall_from_site <- hobo_events3 %>%
+  filter(str_detect(site, "TF"))%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("TFB_mm", "TFD_mm") , names_to = "throughfall", 
+               values_to = "Yield_rate")%>%
+  na.omit()
+  
+
+hobo_event_summary_throughfall <- throughfall_from_site %>% 
+  group_by( hobo_event_n, throughfall) %>% 
+  dplyr::summarise(event_yld_mm = max(cumyield_mm, na.rm=T),
+                   max_rate_mm_5min = max(Yield_rate, na.rm = T),
+                   mean_rate_mm_5min = mean(Yield_rate, na.rm=T))%>%
+  filter(event_yld_mm != 0)
+
+
+
+```
+
+
+#Limbs
+```{r}
+hobo_event_summary2 <- hobo_events3 %>%
+  group_by(site, hobo_event_n) %>%
+  dplyr::summarise(event_yld_mm = max(cumyield_mm, na.rm=T),
+                   max_rate_mm_5min = max(roll_yield, na.rm = T),
+                   mean_rate_mm_5min = mean(roll_yield, na.rm=T))
+
+
+#Join the max rate with the time series to access the time of max for each event
+
+hobo_events4 <- inner_join(hobo_events3, hobo_event_summary2,
+                           by = c("site", "hobo_event_n")) %>% 
+  rownames_to_column()
+
+
+
+#manually keep the max yield rows and remove the duplicates 
+hobo_events5  <- hobo_events4 %>% 
+  mutate(to_keep1 = case_when(roll_yield < max_rate_mm_5min ~ FALSE,
+                             TRUE ~ TRUE )) %>%
+   mutate(to_keep2 = case_when (rowname %in% c(409,8269,416,422,14492,14498,
+                                               135,8272,1745,8273,12287, 3606, 14562) ~ FALSE,
+                              TRUE ~ TRUE))%>%
+  filter(to_keep1) %>% select(-c( to_keep1)) %>% 
+   filter(to_keep2) %>% select(-c( to_keep2, rowname)) %>%
+  na.omit()%>%
+  rename("dt_max_yield_mm" = "dt")
+
+
+hobo_events6 <- hobo_events3 %>% 
+  left_join(., hobo_events5 %>% select(1:3),
+            by = c("site", "hobo_event_n")) %>% 
+  group_by(site, hobo_event_n) %>% 
+  mutate(limb = case_when(dt < dt_max_yield_mm ~ "rising",
+                          dt > dt_max_yield_mm ~ "falling",
+                          dt== dt_max_yield_mm ~ "peak")) %>% 
+  #select(-dt_max_yield_mm)%>%
+  na.omit()
+
+
+hobo_events7 <- hobo_events6%>%
+  mutate(peak = limb == "peak")%>%
+  filter(!str_detect(site, "TF"))
+
+hobo_events8 <- hobo_events7%>%
+  filter(!str_detect(peak, "FALSE"))
+
+ggplot()+
+geom_line(data = hobo_events7, mapping=aes(x=dt, y=roll_yield, colour = site))+
+geom_point(data = hobo_events8, mapping=aes(x=dt, y=roll_yield, colour = limb))+
+  facet_wrap(~hobo_event_n, scales = "free")+
+  labs(title="Stemflow Peaks",
+       x ="Datetime", y = "Yield Rate")
+  
+
+
+hobo_events9 <- hobo_events6%>%
+  mutate(peak = limb == "peak")%>%
+  filter(str_detect(site, "TF"))
+
+hobo_events10 <- hobo_events9%>%
+  filter(!str_detect(peak, "FALSE"))
+
+ggplot()+
+geom_line(data = hobo_events9, mapping=aes(x=dt, y=roll_yield, colour = site))+
+geom_point(data = hobo_events10, mapping=aes(x=dt, y=roll_yield, colour = limb))+
+  facet_wrap(~hobo_event_n, scales = "free")+
+  labs(title="Throughfall Peaks",
+       x ="Datetime", y = "Yield Rate")
+
+
+
+
+
+SF_max <- hobo_events8%>%
+  pivot_wider(names_from = "site", values_from = "roll_yield")%>%
+  pivot_longer(cols = c("SFA_mm","SFC_mm") , names_to = "Sugar", 
+               values_to = "Sugar_Maple_mm")%>%
+  pivot_longer(cols = c("SFB_mm","SFD_mm") , names_to = "Yellow", 
+               values_to = "Yellow_Birch_mm")%>%
+  pivot_longer(cols = c("Sugar_Maple_mm","Yellow_Birch_mm") , names_to = "stemflow", 
+               values_to = "stemflow_mm")%>%
+  select( hobo_event_n, dt_max_yield_mm, stemflow, stemflow_mm)%>%
+  na.omit()%>%
+  rownames_to_column()%>%
+  distinct(across(dt_max_yield_mm), .keep_all = TRUE)
+
+
+
+SF_limbs<- hobo_events3 %>% 
+  left_join(., SF_max,
+            by = c("hobo_event_n")) %>% 
+  group_by( hobo_event_n) %>% 
+  mutate(limb = case_when(dt < dt_max_yield_mm ~ "rising",
+                          dt > dt_max_yield_mm ~ "falling",
+                          dt== dt_max_yield_mm ~ "peak")) %>% 
+  #select(-dt_max_yield_mm)%>%
+  distinct(across(roll_yield), .keep_all = TRUE)%>%
+  na.omit()
+
+
+SF_peaks <- SF_limbs%>%
+  mutate(peak = limb == "peak")%>%
+  filter(!str_detect(peak, "FALSE"))
+
+
+
+ggplot()+
+geom_line(data = SF_limbs, mapping=aes(x=dt, y=roll_yield, colour = stemflow))+
+geom_point(data = SF_peaks, mapping=aes(x=dt, y=roll_yield, colour = limb))+
+  facet_wrap(~hobo_event_n, scales = "free")+
+  labs(title="Throughfall Peaks",
+       x ="Datetime", y = "Yield Rate")
+
+
+
+
+
+
+
+
+
+# ggplot(hobo_events6 %>% filter(!str_detect(site, "TF"))) +
+#   geom_line(mapping=aes(x=dt, y= roll_yield, fill = site, color = limb))+
+#   geom_point(mapping=aes(x=dt, y= roll_yield,  color = limb))+
+#   facet_wrap(~hobo_event_n, scales = "free")
+
+
+hobo_events11 <-hobo_events3%>%
+  na.omit()%>%
+  rename("smooth_yield_rate" = "roll_yield")
+
+
+#save
+saveRDS(hobo_events6, paste0(here, "/output/hobo_limbs.Rds"))
+saveRDS(hobo_events11, paste0(here, "/output/hobo_events_cleaned.Rds"))
+saveRDS(hobo_event_summary, paste0(here, "/output/hobo_events_summary.Rds"))
+```
+
+
+
+#ANOVA
+```{r}
+#TFvsSF
+anova_cumyield <- aov(event_yld_mm ~ flowpath , data = hobo_event_summary)
+summary(anova_cumyield)
+
+anova_max_rate <- aov(max_rate_mm_5min ~ flowpath , data = hobo_event_summary)
+summary(anova_max_rate)
+
+anova_mean_rate <- aov(mean_rate_mm_5min ~ flowpath, data = hobo_event_summary)
+summary(anova_mean_rate)
+
+
+#SMvsYB
+# SMYB <- hobo_event_summary %>%
+#   filter(flowpath2 != "Throughfall_yield")
+
+anova_cumyield <- aov(event_yld_mm ~ Species , data = hobo_event_summary_SMYB)
+summary(anova_cumyield)
+
+anova_max_rate <- aov(max_rate_mm_5min ~ Species, data = hobo_event_summary_SMYB)
+summary(anova_max_rate)
+
+anova_mean_rate <- aov(mean_rate_mm_5min ~ Species, data = hobo_event_summary_SMYB)
+summary(anova_mean_rate)
+
+
+
+#YB
+
+anova_cumyield <- aov(event_yld_mm ~ Yellow , data = hobo_event_summary_yb)
+summary(anova_cumyield)
+
+anova_max_rate <- aov(max_rate_mm_5min ~ Yellow , data = hobo_event_summary_yb)
+summary(anova_max_rate)
+
+anova_mean_rate <- aov(mean_rate_mm_5min ~ Yellow, data = hobo_event_summary_yb)
+summary(anova_mean_rate)
+
+
+#SM
+anova_cumyield <- aov(event_yld_mm ~ Sugar , data = hobo_event_summary_sm)
+summary(anova_cumyield)
+
+anova_max_rate <- aov(max_rate_mm_5min ~ Sugar , data = hobo_event_summary_sm)
+summary(anova_max_rate)
+
+anova_mean_rate <- aov(mean_rate_mm_5min ~ Sugar, data = hobo_event_summary_sm)
+summary(anova_mean_rate)
+
+
+
+#TF
+anova_cumyield <- aov(event_yld_mm ~ throughfall , data = hobo_event_summary_throughfall)
+summary(anova_cumyield)
+
+anova_max_rate <- aov(max_rate_mm_5min ~ throughfall , data = hobo_event_summary_throughfall)
+summary(anova_max_rate)
+
+anova_mean_rate <- aov(mean_rate_mm_5min ~ throughfall, data = hobo_event_summary_throughfall)
+summary(anova_mean_rate)
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#old code related to matlab
+##X Prepare imported hobo for import to Matlab
+```{r}
+#SF-A -----
+#Load hobo record
+site <- "SF-A"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+
+hobo_xts <- xts(hobo %>% select(dt, yield_mm_hobo), order.by=hobo$dt)
+dygraph(hobo_xts) %>% dyAxis("y", valueRange = c(-1, 1)) %>% 
+  dyRangeSelector()
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, hobo_yield_mm) 
+  # rename("datetime" = "datetime") %>% 
+  # drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+readr::write_excel_csv(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+
+#SF-B -----
+#Load hobo record
+site <- "SF-B"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, yield_mm_hobo) %>% 
+  drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+write_csv(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+
+
+#SF-C -----
+#Load hobo record
+site <- "SF-C"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, yield_mm_hobo) %>% 
+  drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+write_csv(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+
+
+#SF-D -----
+#Load hobo record
+site <- "SF-D"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, yield_mm_hobo) %>% 
+  drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+write_csv(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+
+
+#TF-B -----
+#Load hobo record
+site <- "TF-B"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, yield_mm_hobo) %>% 
+  drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+write_csv(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+
+
+
+#TF-D -----
+#Load hobo record
+site <- "TF-D"
+hobo <- readRDS(paste0(here, "/output/hobo_imported/",
+                       site, "/", site, "_imported.Rds"))
+
+#create datetime character for input to matlab 
+hobo_ml <- hobo %>%
+  arrange(dt) %>% 
+  mutate(datetime = as.character(dt),
+         hobo_yield_mm = case_when(yield_mm_hobo < 0 ~ 0,
+                                   TRUE ~ yield_mm_hobo)) %>% 
+  select(datetime, yield_mm_hobo) %>% 
+  drop_na()
+
+sum(duplicated(hobo_ml$datetime))
+
+dir_delete(paste0(here, "/data/hobo/forMatlab/", site))
+dir_create(paste0(here, "/data/hobo/forMatlab/", site))
+
+#Save file for input to matlab correction script
+saveRDS(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.Rds"))
+write_csv(hobo_ml,
+        paste0(here,"/data/hobo/forMatlab/", site, "/hobo_", site,
+        "_ml.csv"))
+
+rm(site, hobo, hobo_ml)
+
+
+```
+
+
+## Correct matlab output
+```{r}
+# Note the datenum matlab function does not account for time zone or DST.
+# The date-time character input to matlab are in America/Cancun so the output numbers are also America/Cancun
+
+# load cumulative precip data corrected from matlab APCP output
+hobo_ml_corr <- read_csv(paste0(here,
+                                   "/scan-tree/data/hobo/forMatlab/hoboPPTcorr.csv"),
+                              skip_empty_rows = FALSE,
+                              col_names = FALSE)
+#ensure file is correct
+plot(hobo_ml_corr$X2, type = "l")
+
+#Convert matlab values as America/Cancun to POSIXct, but R thinks it's in UTC, so format as character first
+# Then convert datetime string to Posixct, specifying the America/Cancun timezone
+hobo_ml_corr$dt <- as.character(as.POSIXct((hobo_ml_corr$X1 - 719529)*86400,
+                                                origin = "1970-01-01",
+                                                tz = "UTC"))
+hobo_ml_corr$dt <- as.POSIXct(hobo_ml_corr$dt, tz = "America/Cancun")
+#cHECK to confirm timezone is America/Cancun
+attr(hobo_ml_corr$dt, "tzone")
+
+# Round to the nearest minute because matlab conversion is off occasionally by a second
+hobo_ml_corr <- hobo_ml_corr %>% 
+  mutate(dt = round_date(dt, unit = "minute"),
+         hobo_cum_mm = X2) %>% 
+  select(dt, hobo_cum_mm) #matlab corrected output
+
+plot(hobo_ml_corr$hobo_cum_mm ~ hobo_ml_corr$dt, type = "l")
+
+#calculate the time intervals/duration, and cumulative duration 
+hobo_ml_corr <- hobo_ml_corr %>% 
+  arrange(dt) %>% 
+  mutate(hobo_mm_5min = lead(hobo_cum_mm, n = 1, order_by = dt) - hobo_cum_mm,
+         hobo_dur_hr = "")
+
+hobo_ml_corr$hobo_dur_hr[1] <- 0
+hobo_ml_corr$hobo_dur_hr[-1] <- 5/60 #5min interval converted to hours
+hobo_ml_corr$hobo_cum_hr = cumsum(hobo_ml_corr$hobo_dur_hr)
+
+#sum the 5min data to hourly.  floor_date ensures sums fall within the hour and do not indicate precipitation that fell in the preceeding hour.
+hobo_mm_hr <-  hobo_ml_corr %>% 
+  dplyr::mutate(dt_hr = floor_date(dt, unit = "hour")) %>% 
+  dplyr::group_by(dt_hr) %>% 
+  dplyr::summarise(hobo_mm_hr = sum(hobo_mm_5min, na.rm = TRUE)) %>%
+  dplyr::ungroup() %>% 
+  dplyr::mutate(dt = dt_hr)
+
+#join
+scan_tree_ppt2 <- full_join(hobo_ml_corr, scan_tree_ppt, by = "dt") %>% 
+  full_join(hobo_mm_hr, ., by = "dt") %>% 
+  distinct(dt, .keep_all = TRUE) %>% 
+  arrange(dt) %>% 
+  mutate(diff = lead(dt) - dt,
+         ID = paste(id2, dt_chr, sep = "_")) %>% 
+  select(ID, diff, everything())
+ 
+glimpse(scan_tree_ppt2)
+sum(duplicated(scan_tree_ppt2$dt))
+
+#Plot hobo vs. W9basin record
+ggplot(scan_tree_ppt2) +
+  geom_point(aes(x=w9ppt_mm_hr, y=hobo_mm_hr)) +
+  geom_abline(color = "red") +
+  lims(x=c(0,5), y=c(0,5))
+
+xts <-  xts(scan_tree_ppt2 %>%
+              select(dt, hobo_mm_hr, hobo_mm_5min, yield_mm_hobo,
+                     w9ppt_mm_hr, `300.00`) %>% 
+              mutate(`300.00` = `300.00`/10),
+            order.by = scan_tree_ppt2$dt,
+            tzone = "America/Cancun")
+# browse periods to check outliers
+dygraph(xts) %>% 
+  # dySeries("300.00", axis = "y2") %>% 
+  dyOptions(connectSeparatedPoints = FALSE,
+            drawPoints = TRUE,
+            stepPlot = TRUE,
+            pointSize = 2,
+            fillGraph = TRUE,
+            useDataTimezone = TRUE) %>%
+  dyRangeSelector()
+
+
+saveRDS(scan_tree_ppt2, paste0(here, "/scan-tree/output/scan_tree_ppt2.Rds"))
+write_csv(scan_tree_ppt2, paste0(here, "/scan-tree/output/scan_tree_ppt2.csv"))
+
+rm(hobo_ml_corr, hobo_mm_hr, scan_tree_ppt, scan_tree_ppt2)
+```
+
+
+
+

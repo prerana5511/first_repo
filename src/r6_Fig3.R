@@ -147,6 +147,8 @@ rate_convertion <- model_rec_events %>%
                           str_detect(site, "SFD") ~ "YB",
                           str_detect(site, "TFB") ~ "TF",
                           str_detect(site, "TFD") ~ "TF"))%>%
+  dplyr::group_by(recession_n)%>%
+  nest() %>%
   mutate(rate_yld = .fitted - lag(.fitted))
 
 
