@@ -128,7 +128,7 @@ model_rec_events <- rec_norm %>%
 
 
 
-rate_convertion <- model_rec_events%>%
+rate_convertion <- model_rec_events %>%
   # select(-yield_mm, yld_mm_norm1, -yld_mm_norm2, -sec)%>%
   mutate(hobo_event_n = recession_n)%>%
   mutate(hobo_event_n = case_when(str_detect(hobo_event_n, "E1") ~ "1",

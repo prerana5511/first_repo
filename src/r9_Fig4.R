@@ -52,7 +52,8 @@ p2 = ggplot(merged_event_table) +
 
 ggplot(merged_rec_table) +
   geom_point(mapping = aes(Delta_T_duration, y=m,colour = site))+
-  facet_wrap(~ site, scales = "free")
+  geom_boxplot(mapping = aes(x=site, y=m))+
+  facet_wrap(~ site)
 
 p1 /p2
 

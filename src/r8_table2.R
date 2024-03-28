@@ -60,12 +60,13 @@ merged_rec <- full_join(rec_values, rec_intervals,
 
 
 centroid1<-ppt_events %>% 
-  drop_na%>%
-  group_by(Event)%>%
-  mutate(midpoint = sum(W9_Precipitation_mm)/2)%>%
-  mutate(cum_ppt = cumsum(W9_Precipitation_mm))%>%
-  filter(cum_ppt > midpoint)%>%
-  mutate(centroid1 = min(cum_ppt))%>%
+  drop_na %>%
+  group_by(Event) %>%
+  arrange(datetime_EST2) %>% 
+  mutate(midpoint = sum(W9_Precipitation_mm)/2) %>%
+  mutate(cum_ppt = cumsum(W9_Precipitation_mm)) %>%
+  filter(cum_ppt > midpoint) %>%
+  mutate(centroid1 = min(cum_ppt)) %>%
   filter(cum_ppt == centroid1)
 
 
@@ -83,7 +84,7 @@ centroid <- full_join(centroid1, centroid2,
                       by = c( "Event", "cum_ppt", "datetime_EST2", "midpoint",
                               "W9_Precipitation_mm"))%>%
   group_by(Event)%>%
-  mutate(centroid = median(datetime_EST2))%>%
+  mutate(centroid = median(datetime_EST2)) %>%
   rename("hobo_event_n" = "Event")%>%
   ungroup()
   
