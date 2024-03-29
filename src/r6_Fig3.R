@@ -7,7 +7,6 @@ library(fs)
 library(xts)
 library(dygraphs)
 library(readxl)
-# library(ggplot2)
 library(scales)
 library(patchwork)
 
@@ -139,17 +138,17 @@ rate_convertion <- model_rec_events %>%
                           str_detect(hobo_event_n, "E6") ~ "6",
                           str_detect(hobo_event_n, "E7") ~ "7",
                           str_detect(hobo_event_n, "E8") ~ "8",
-                          str_detect(hobo_event_n, "E9") ~ "9"))%>%
+                          str_detect(hobo_event_n, "E9") ~ "9")) %>%
   mutate(site = recession_n)%>%
   mutate(site = case_when(str_detect(site, "SFA") ~ "SM",
                           str_detect(site, "SFB") ~ "YB",
                           str_detect(site, "SFC") ~ "SM",
                           str_detect(site, "SFD") ~ "YB",
                           str_detect(site, "TFB") ~ "TF",
-                          str_detect(site, "TFD") ~ "TF"))%>%
-  dplyr::group_by(recession_n)%>%
-  nest() %>%
-  mutate(rate_yld = .fitted - lag(.fitted))
+                          str_detect(site, "TFD") ~ "TF")) %>%
+  dplyr::group_by(recession_n) %>%
+  mutate(rate_yld = .fitted - lag(.fitted)) %>%
+  ungroup()
 
 
 
