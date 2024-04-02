@@ -153,6 +153,6 @@ rate_convertion <- model_rec_events %>%
 
 
 ggplot(rate_convertion) +
-  geom_point(mapping = aes(x=sec_norm, y=rate_yld,colour = site))+
+  geom_col(mapping = aes(x=sec_norm, y=rate_yld,colour = site))+
   facet_wrap(~ hobo_event_n, scales = "free")
 
