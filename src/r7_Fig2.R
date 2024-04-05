@@ -143,7 +143,9 @@ TF_rec <- hobo_rec_norm %>%
 
 t1 <- ggplot()+
   geom_bar(aes(x= dt, y= W9_Precipitation_mm),
-           data =ppt_events_r7_2%>%filter(Event == 1),stat='identity', colour = alpha( 'green', 0.7))+
+           data =ppt_events_r7_2 %>% 
+             filter(Event == 1), 
+           stat='identity', colour = alpha( 'green', 0.7))+
   scale_x_datetime(
     breaks = seq(as.POSIXct("2018-07-26 09:00:00 EST"),
                  as.POSIXct("2018-07-27 06:00:00 EST"), "3 hours"),
@@ -158,8 +160,8 @@ t1 <- ggplot()+
 
 
 t2 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = SF_event%>%filter(Event == 1))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = SF_event%>%filter(Event == 1))+
   geom_point(aes(x=dt, y = Ev_yld_norm,group = site, colour = site),
              data = SF_rec %>%filter(Event == 1)) +
   scale_x_datetime(
@@ -177,8 +179,8 @@ t2 <- ggplot()+
 
 
 t3 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = TF_event%>%filter(Event == 1))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = TF_event%>%filter(Event == 1))+
   geom_point(aes(x=dt, y = Ev_yld_norm,group = site, colour = site),
              data = TF_rec %>%filter(Event == 1)) +  
   scale_x_datetime(
@@ -194,7 +196,7 @@ t3 <- ggplot()+
 
 
 t <- t1+ t2 +t3 + plot_layout(ncol=1)
-
+t
 ggsave(filename = "Fig_2_Ev_1.png", plot = t, path = paste0(here, "/output/figs/"),
        device = "png")
 
