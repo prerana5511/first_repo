@@ -124,7 +124,9 @@ model_rec_events <- rec_norm %>%
   # unnest(cols = c(Pred))
 
 
-
+ggplot(model_rec_events) +
+  geom_line(mapping = aes(x=sec_norm, y=.fitted, colour = recession_n))
+  facet_wrap(~ hobo_event_n, scales = "free")
 
 
 rate_convertion <- model_rec_events %>%
@@ -155,4 +157,10 @@ rate_convertion <- model_rec_events %>%
 ggplot(rate_convertion) +
   geom_col(mapping = aes(x=sec_norm, y=rate_yld,colour = site))+
   facet_wrap(~ hobo_event_n, scales = "free")
+
+ggplot(rate_convertion) +
+  geom_point(mapping = aes(x=sec_norm, y=.fitted, colour = site),
+            size = 3.5)+
+  facet_wrap(~ hobo_event_n, scales = "free") +
+  theme_bw()
 
