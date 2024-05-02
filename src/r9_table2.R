@@ -7,39 +7,40 @@ library(fs)
 library(xts)
 library(dygraphs)
 library(readxl)
-# library(ggplot2)
 library(scales)
 library(patchwork)
 library(broom)
 
-
-ppt_events <-readr::read_csv(paste0(here,  "/output/ppt_events.csv"))%>%
-  select(datetime_EST2, W9_Precipitation_mm, Event)%>%
+#Import ppt events
+ppt_events <-readr::read_csv(paste0(here,  "/output/ppt_events_with_API.csv"))%>%
+  mutate(.after = datetime_EST, #indicates where the new column is placed
+         datetime_EST2 = as.POSIXct(datetime_EST, format = "%m/%d/%Y %H:%M"))%>%
   mutate(across(.cols = lubridate::is.POSIXct,
                 ~ lubridate::force_tz(., tzone='EST')))
-  
+
+#Check timezone
 tz(ppt_events$datetime_EST2)
 
 
-
-rec_values <- read_csv(paste0(here, "/data/rec_values.csv"))%>%
+#Import recession values
+rec_values <- read_csv(paste0(here, "/output/rec_values.csv"))%>%
   mutate(across(.cols = lubridate::is.POSIXct,
                 ~ lubridate::with_tz(., tzone='EST')))%>%
   rename("rec_yield" = "yield_mm")
 
 
-
-rec_intervals <- read_csv(paste0(here, "/data/curve_intervals.csv"))%>%
+#Import recession intervals
+rec_intervals <- read_csv(paste0(here, "/output/curve_intervals.csv"))%>%
   select(-notes)%>%
   mutate(across(.cols = lubridate::is.POSIXct,
-                ~ lubridate::with_tz(., tzone='EST')))%>%
+                ~ lubridate::force_tz(., tzone='EST')))%>%
   rename("hobo_event_n" = "event_n")%>%
   drop_na()
   
   
 
-
-rec_model <- read_csv(paste0(here, "/data/rec_model.csv"))%>%
+#Import recession models and coefficients
+rec_model <- read_csv(paste0(here, "/output/rec_model.csv"))%>%
   mutate(across(.cols = lubridate::is.POSIXct,
                 ~ lubridate::with_tz(., tzone='EST')))%>%
   mutate(site = recession_n)%>%

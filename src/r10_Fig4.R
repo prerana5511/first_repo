@@ -12,22 +12,35 @@ library(scales)
 library(patchwork)
 library(broom)
 
-rec_table_1 <- readr::read_csv(paste0(here, "/output/table1.csv"))%>%
+
+#Import table containing API values
+api_table <- readr::read_csv(paste0(here, "/output/table1.csv"))%>%
   rename("hobo_event_n" = "Event")
 
-rec_table_2 <- readr::read_csv(paste0(here, "/output/table2.csv"))
+
+#Import recession event statistics
+rec_table <- readr::read_csv(paste0(here, "/output/table2.csv"))%>%
+  mutate(centroid = as.POSIXct(centroid, format = "%m/%d/%Y %H:%M"))%>%
+  mutate(across(.cols = lubridate::is.POSIXct,
+                ~ lubridate::with_tz(., tzone='EST')))
 
 
+#Import table of hobo events model coefficients
+event_table <- readr::read_csv(paste0(here, "/output/event_model.csv"))%>%
+  mutate(dt = as.POSIXct(dt, format = "%m/%d/%Y %H:%M"))%>%
+  mutate(across(.cols = lubridate::is.POSIXct,
+                ~ lubridate::with_tz(., tzone='EST')))
 
-event_table <- readr::read_csv(paste0(here, "/data/event_model.csv"))
 
-merged_event_table <- full_join(rec_table_1, event_table,
+#Merging API and hobo events
+merged_event_table <- full_join(api_table, event_table,
                                  by = c( "hobo_event_n"))%>%
   select(hobo_event_n, api_30d, event_intensity, m)
 
 
 
-merged_rec_table <- full_join(rec_table_1, rec_table_2,
+#Merging API and rec events
+merged_rec_table <- full_join(api_table, rec_table,
                                  by = c( "hobo_event_n"))%>%
   mutate(site = recession_n)%>%
   mutate(site = case_when(str_detect(site, "SFA") ~ "SM",

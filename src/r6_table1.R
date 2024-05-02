@@ -7,12 +7,11 @@ library(fs)
 library(xts)
 library(dygraphs)
 library(readxl)
-# library(ggplot2)
 library(scales)
 library(patchwork)
 
 
-
+#import precip data
 ppt <- readr::read_csv(paste0(here, "/data/W9_Streamflow_Precipitation.csv")) %>% 
   mutate(.after = datetime_EST, #indicates where the new column is placed
          datetime_EST2 = as.POSIXct(datetime_EST, format = "%m/%d/%Y %H:%M")) %>% 
@@ -21,8 +20,8 @@ ppt <- readr::read_csv(paste0(here, "/data/W9_Streamflow_Precipitation.csv")) %>
   arrange(datetime_EST2) #Order from earliest to latest timestamp
 
 
-
-ppt_interval <-readr::read_csv(paste0(here, "/data/ppt_interval_fomatted.csv"))
+#import precip interval and convert timezone to EST
+ppt_interval <-readr::read_csv(paste0(here, "/data/hobo_ppt_interval_file.csv"))
 tz(ppt_interval$Start_dt_EST)
 ppt_interval2 <- ppt_interval%>% 
   mutate(across(.cols = lubridate::is.POSIXct,
@@ -33,56 +32,64 @@ ppt_interval2 <- ppt_interval%>%
                                                      tz = "EST"),
          event_dur_sec = dseconds(datetime_interval_EST))
 
+write_csv(ppt_interval2, paste0(here, "/output/ppt_interval_final.csv"))
+
 
 #load API function
 source(paste0(here, "/src/API.R"))
 
 
-
+#API for 30 days
 ppt_api <- ppt %>% 
   arrange(datetime_EST2) %>% 
   mutate(api_30d = getApi(W9_Precipitation_mm, k = 0.9, n = 30, finite = TRUE))
 
 
-#Filtering daily API events
+
+#Filtering 30d API within ppt events
 ppt_api_events <- slice(ppt_api, 0) 
 
 for (i in 1:length(ppt_interval2$Event)) {
   interval <- ppt_api %>%
     filter(datetime_EST2 %within% ppt_interval2$datetime_interval_EST[i]) %>% 
-    mutate(event_n = ppt_interval2$Event[i]) 
+    mutate(Event = ppt_interval2$Event[i]) 
   
   
   ppt_api_events  <- bind_rows(ppt_api_events, interval)
 }
 
 
+#saving precip events
+write_csv(ppt_api_events, paste0(here, "/output/ppt_events_with_API.csv"))
+
+
+#nesting API 30 days events
 ppt_api_events2 <- ppt_api_events%>%
-  group_by(event_n)%>%
+  group_by(Event)%>%
   nest() %>%
   mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x)))%>%
   mutate(data = map(data, ~summarise(.x, across(contains("api"), mean))))%>%
   unnest_wider(data) %>% 
-  ungroup()%>%
-  rename("Event" = "event_n")
+  ungroup
+  # rename("Event" = "event_n")
   
 
 
-#Filtering daily API events
-ppt_events <- slice(ppt, 0) 
+#Filtering ppt events
+# ppt_events <- slice(ppt, 0)
+# 
+# for (i in 1:length(ppt_interval2$Event)) {
+#   interval <- ppt %>%
+#     filter(datetime_EST2 %within% ppt_interval2$datetime_interval_EST[i]) %>%
+#     mutate(Event = ppt_interval2$Event[i])
+# 
+# 
+#   ppt_events  <- bind_rows(ppt_events, interval)
+# }
 
-for (i in 1:length(ppt_interval2$Event)) {
-  interval <- ppt %>%
-    filter(datetime_EST2 %within% ppt_interval2$datetime_interval_EST[i]) %>% 
-    mutate(Event = ppt_interval2$Event[i]) 
-  
-  
-  ppt_events  <- bind_rows(ppt_events, interval)
-}
 
 
-
-event_summary<- inner_join(ppt_events, ppt_interval2,
+event_summary<- inner_join(ppt_api_events, ppt_interval2,
                               by = c( "Event"))%>%
   mutate(event_dur_num = as.numeric(event_dur_sec))%>%
   group_by(Event)%>%

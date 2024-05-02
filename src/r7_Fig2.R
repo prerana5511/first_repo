@@ -10,37 +10,32 @@ library(readxl)
 library(scales)
 library(patchwork)
 
-ppt_events_r7 <- read_csv(paste0(here, "/output/ppt_events.csv"))%>%
-  select(Event, datetime_EST2, W9_Precipitation_mm)%>%
-  drop_na()
 
-ppt_interval <- read_csv(paste0(here, "/data/ppt_interval_fomatted.csv"))
-
-
-tz(ppt_interval$Start_dt_EST) #imported time zone is UTC
-
-
-ppt_intervals2 <- ppt_interval %>% 
+#import precip events
+ppt_events_r7 <- read_csv(paste0(here, "/output/ppt_events_with_API.csv"))%>%
+  select(Event, datetime_EST, W9_Precipitation_mm)%>%
+  mutate(.after = datetime_EST, #indicates where the new column is placed
+         datetime_EST2 = as.POSIXct(datetime_EST, format = "%m/%d/%Y %H:%M"))%>%
   mutate(across(.cols = lubridate::is.POSIXct,
-                ~ lubridate::force_tz(., tzone='EST'))) %>% 
-  mutate(.after = End_dt_EST,
-         datetime_interval_EST = lubridate::interval(start = Start_dt_EST,
-                                                     end = End_dt_EST,
+                ~ lubridate::force_tz(., tzone='EST')))
+
+
+tz(ppt_events_r7$datetime_EST2) 
+
+
+#import precip interval and convert timezone to EST
+ppt_interval <-readr::read_csv(paste0(here, "/data/ppt_interval_fomatted.csv"))
+tz(ppt_interval$Start_dt_GMT)
+ppt_intervals2 <- ppt_interval%>% 
+  mutate(across(.cols = lubridate::is.POSIXct,
+                ~ lubridate::with_tz(., tzone='EST'))) %>% 
+  mutate(.after = End_dt_GMT,
+         datetime_interval_EST = lubridate::interval(start = Start_dt_GMT,
+                                                     end = End_dt_GMT,
                                                      tz = "EST"),
          event_dur_sec = dseconds(datetime_interval_EST))
 
-class(ppt_intervals2$datetime_interval_EST)
-tz(ppt_intervals2$datetime_interval_EST) #timezone of interval gives an error
-tz(ppt_intervals2$Start_dt_EST) #timezone of start is EST
-
-
-#To check the interval is in EST, we can pull out the start
-start <- int_start( ppt_intervals2$datetime_interval_EST[1])
-class(start)
-tz(start)
-
-
-
+tz(ppt_intervals2$Start_dt_GMT)
 
 
 
@@ -55,7 +50,9 @@ hobo_events2 <- hobo_events %>%
                           site == "TFB_mm" ~ "TF-B",
                           site == "TFD_mm" ~ "TF-D"))
 
-hobo_events_rec <-read_csv(paste0(here, "/data/rec_values.csv"))%>%
+hobo_events_rec <-read_csv(paste0(here, "/output/rec_values.csv"))%>%
+  mutate(across(.cols = lubridate::is.POSIXct,
+                ~ lubridate::with_tz(., tzone='EST')))
   rename("recession_yield" = "yield_mm")
 
 hobo_merged <- full_join(hobo_events2 , hobo_events_rec,
@@ -79,8 +76,7 @@ for (i in 1:length(ppt_intervals2$Event)) {
 
 
 hobo_event_norm <- hobo_from_ppt_events%>%
-  select(-Start_dt_EST, -End_dt_EST, -datetime_interval_EST,-event_dur_sec,
-         -recession_yield, -Notes)%>%
+  select(-Start_dt_GMT, -End_dt_GMT, -recession_yield, -Notes)%>%
   group_by(hobo_event_n)%>%
   mutate(Ev_yld_norm = event_yield + abs(min(event_yield)))%>%
   # distinct(Ev_yld_norm, .keep_all = TRUE)%>%

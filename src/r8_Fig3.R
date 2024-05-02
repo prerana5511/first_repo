@@ -12,9 +12,10 @@ library(patchwork)
 
 #HOBO EVENT CURVES
 
+#Import hobo events
 hobo_events <- readRDS(paste0(here, "/output/hobo_events.Rds"))
 
-#event_norm
+#Normalize hobo and process events for event summary in r10_fig4 script
 event_norm <- hobo_events%>%
   group_by(hobo_event_n)%>%
   mutate(sec = seconds(dt) - min(seconds(dt)),
@@ -50,20 +51,23 @@ nested_events <- event_norm %>%
   ungroup()%>%
   distinct(across(hobo_event_n), .keep_all = TRUE)
 
-
+#Save event models for r9 script
 write_csv(nested_events,
-          paste0(here,"/data/event_model.csv"))
+          paste0(here,"/output/event_model.csv"))
 
 
 
 #RECESSION CURVES
 
-hobo_rec_events <- read_csv(paste0(here, "/data/rec_values.csv"))%>%
+#Import recession curve values
+hobo_rec_events <- read_csv(paste0(here, "/output/rec_values.csv"))%>%
   mutate(across(.cols = lubridate::is.POSIXct,
                 ~ lubridate::with_tz(., tzone='EST')))
 
 
-#rec_norm
+#Normalizing rec values since hobo values normalization will give different 
+#values from rec values normalization and we need both
+
 rec_norm <- hobo_rec_events%>%
   group_by(recession_n)%>%
   mutate(sec = seconds(dt) - min(seconds(dt)),
@@ -71,14 +75,6 @@ rec_norm <- hobo_rec_events%>%
          yld_mm_norm1 = yield_mm - min(yield_mm),
          yld_mm_norm2 = yld_mm_norm1/max(yld_mm_norm1),
          power_yield = 10^yld_mm_norm2)%>%
-  mutate(site = recession_n)%>%
-  mutate(site = case_when(str_detect(site, "SFA") ~ "SM",
-                          str_detect(site, "SFB") ~ "YB",
-                          str_detect(site, "SFC") ~ "SM",
-                          str_detect(site, "SFD") ~ "YB",
-                          str_detect(site, "TFB") ~ "TF",
-                          str_detect(site, "TFD") ~ "TF"))%>%
-  # select(-TF, -SM, -YB)%>%
   ungroup()%>%
   distinct(across(power_yield), .keep_all = TRUE)%>%
   drop_na()
@@ -102,12 +98,14 @@ nested_rec_events <- rec_norm %>%
   distinct(across(recession_n), .keep_all = TRUE)
 
 
+#Saving rec models
 write_csv(nested_rec_events,
-          paste0(here,"/data/rec_model.csv"))
+          paste0(here,"/output/rec_model.csv"))
 
 
 
-#Pred
+#Recession curve model coefficients
+
 model_rec_events <- rec_norm %>%
   dplyr::group_by(recession_n)%>%
   nest() %>%
@@ -116,12 +114,9 @@ model_rec_events <- rec_norm %>%
          preds = map(m1, broom::augment),
          r = map_dbl(.x = data, .f = ~cor(.x$power_yield, .x$sec_norm, use="complete.obs")),
          RMSE = map_dbl(preds, .f = ~sqrt(mean(.x$.resid^2)))) %>%
-  # unnest(preds)%>%
   unnest(preds)%>%
   ungroup()
-  # mutate(Pred = purrr::map2(.x = m1, .y = data, ~ predict.lm(object =.x))) %>% #predict on new data
-  # select(recession_n, Pred) %>%
-  # unnest(cols = c(Pred))
+
 
 
 ggplot(model_rec_events) +
@@ -129,9 +124,9 @@ ggplot(model_rec_events) +
   facet_wrap(~ hobo_event_n, scales = "free")
 
 
+#Assigning hobo events number, species as sites and converting he fitted prediction to rate
 rate_convertion <- model_rec_events %>%
-  # select(-yield_mm, yld_mm_norm1, -yld_mm_norm2, -sec)%>%
-  mutate(hobo_event_n = recession_n)%>%
+  mutate(hobo_event_n = recession_n)%>% #creating a column for plotting using facet_wrap
   mutate(hobo_event_n = case_when(str_detect(hobo_event_n, "E1") ~ "1",
                           str_detect(hobo_event_n, "E2") ~ "2",
                           str_detect(hobo_event_n, "E3") ~ "3",
@@ -141,7 +136,7 @@ rate_convertion <- model_rec_events %>%
                           str_detect(hobo_event_n, "E7") ~ "7",
                           str_detect(hobo_event_n, "E8") ~ "8",
                           str_detect(hobo_event_n, "E9") ~ "9")) %>%
-  mutate(site = recession_n)%>%
+  mutate(site = recession_n)%>% #creating sites acc. to species for plotting using facet_wrap
   mutate(site = case_when(str_detect(site, "SFA") ~ "SM",
                           str_detect(site, "SFB") ~ "YB",
                           str_detect(site, "SFC") ~ "SM",
@@ -153,11 +148,12 @@ rate_convertion <- model_rec_events %>%
   ungroup()
 
 
-
+#Plot column
 ggplot(rate_convertion) +
   geom_col(mapping = aes(x=sec_norm, y=rate_yld,colour = site))+
   facet_wrap(~ hobo_event_n, scales = "free")
 
+#Plot point
 ggplot(rate_convertion) +
   geom_point(mapping = aes(x=sec_norm, y=.fitted, colour = site),
             size = 3.5)+
