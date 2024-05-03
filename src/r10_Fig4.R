@@ -53,20 +53,24 @@ merged_rec_table <- full_join(api_table, rec_table,
 
 
 
-
+#Plotting API vs slope
 p1 = ggplot(merged_event_table) +
   geom_point(mapping = aes(x=api_30d, y=m,colour = "api"))
 
+
+#Plotting event intensity vs slope
 p2 = ggplot(merged_event_table) +
   geom_point(mapping = aes(event_intensity, y=m,colour = "event_intensity"))
 
 
 
-
+#Plotting DeltaT vs slope
 p3 = ggplot(merged_rec_table) +
   geom_point(mapping = aes(Delta_T_duration, y=m,colour = site))+
   geom_boxplot(mapping = aes(x=site, y=m))+
   facet_wrap(~ site)
+
+
 
 p1 /p2
 

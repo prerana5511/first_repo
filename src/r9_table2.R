@@ -43,23 +43,16 @@ rec_intervals <- read_csv(paste0(here, "/output/curve_intervals.csv"))%>%
 rec_model <- read_csv(paste0(here, "/output/rec_model.csv"))%>%
   mutate(across(.cols = lubridate::is.POSIXct,
                 ~ lubridate::with_tz(., tzone='EST')))%>%
-  mutate(site = recession_n)%>%
-  mutate(site = case_when(str_detect(site, "SFA") ~ "SF-A",
-                          str_detect(site, "SFB") ~ "SF-B",
-                          str_detect(site, "SFC") ~ "SF-C",
-                          str_detect(site, "SFD") ~ "SF-D",
-                          str_detect(site, "TFB") ~ "TF-B",
-                          str_detect(site, "TFD") ~ "TF-D"))%>%
   ungroup()%>%
   select(recession_n, hobo_event_n, site, i, m)
 
 
-
+#Merging recession values and intervals
 merged_rec <- full_join(rec_values, rec_intervals,
                          by = c( "recession_n", "hobo_event_n", "site"))
 
 
-
+#Storing the cumulative ppt that is just above the midpoint of the total ppt
 centroid1<-ppt_events %>% 
   drop_na %>%
   group_by(Event) %>%
@@ -71,6 +64,7 @@ centroid1<-ppt_events %>%
   filter(cum_ppt == centroid1)
 
 
+#Storing the cumulative ppt that is just below the midpoint of the total ppt
 centroid2<-ppt_events %>% 
   drop_na%>%
   group_by(Event)%>%
@@ -81,6 +75,8 @@ centroid2<-ppt_events %>%
   filter(cum_ppt == centroid2)
 
 
+#storing centroid as the median of the cumulative ppt values just below and 
+#above the midpoint of the total ppt
 centroid <- full_join(centroid1, centroid2,
                       by = c( "Event", "cum_ppt", "datetime_EST2", "midpoint",
                               "W9_Precipitation_mm"))%>%
@@ -90,7 +86,7 @@ centroid <- full_join(centroid1, centroid2,
   ungroup()
   
 
-
+#Calculating DeltaT as the time between centroid of ppt and start of recession curves
 DeltaT <- inner_join(merged_rec , centroid,
                              by = c("hobo_event_n")) %>%
   mutate(Delta_T = lubridate::interval(start = centroid,
@@ -102,6 +98,7 @@ DeltaT <- inner_join(merged_rec , centroid,
          event_dur_sec, centroid, Delta_T, Delta_T_duration)
 
 
+#Calculating event statistics of recession yields
 Event_stats <- merged_rec%>%
   group_by(recession_n)%>%
   summarise(max_rec_yld = max(rec_yield),
@@ -109,6 +106,8 @@ Event_stats <- merged_rec%>%
   ungroup()
 
 
+
+#Calculating the coefficient of variation for all the recession values
 cv_all <- inner_join(rec_intervals , rec_model,
                 by = c("recession_n", "hobo_event_n", "site")) %>%
   group_by(hobo_event_n) %>% 
@@ -116,8 +115,9 @@ cv_all <- inner_join(rec_intervals , rec_model,
          cv_m = sd(m) / mean(m) * 100)%>%
   select(recession_n, hobo_event_n, site, cv_i, cv_m)%>%
   ungroup()
-  
 
+  
+#Calculating the coefficient of variation for stemflow
 cv_SF <- inner_join(rec_intervals , rec_model,
                           by = c("recession_n", "hobo_event_n", "site"))%>%
   filter(!str_detect(site, "TF"))%>%
@@ -128,6 +128,7 @@ cv_SF <- inner_join(rec_intervals , rec_model,
   ungroup()
 
 
+#Calculating the coefficient of variation for throughfall
 cv_TF <- inner_join(rec_intervals , rec_model,
                    by = c("recession_n", "hobo_event_n", "site"))%>%
   filter(str_detect(site, "TF"))%>%
@@ -144,6 +145,7 @@ table2_r8 <- inner_join(cv_all, DeltaT,
                        by = c("hobo_event_n","recession_n","site"))
 
 
+#Creating table 2 - centroid, DeltaT duration, slope & interval
 table2_r8_2 <- inner_join(table2_r8, rec_model,
                          by= c("hobo_event_n","recession_n", "site"))
 

@@ -23,12 +23,6 @@ event_norm <- hobo_events%>%
          yld_mm_norm1 = yield_mm - min(yield_mm),
          yld_mm_norm2 = yld_mm_norm1/max(yld_mm_norm1),
          power_yield = 10^yld_mm_norm2)%>%
-  mutate(site = case_when(site == "SFA_mm" ~ "SF-A",
-                          site == "SFB_mm" ~ "SF-B",
-                          site == "SFC_mm" ~ "SF-C",
-                          site == "SFD_mm" ~ "SF-D",
-                          site == "TFB_mm" ~ "TF-B",
-                          site == "TFD_mm" ~ "TF-D"))%>%
   ungroup()%>%
   distinct(across(power_yield), .keep_all = TRUE)%>%
   drop_na()
@@ -148,12 +142,12 @@ rate_convertion <- model_rec_events %>%
   ungroup()
 
 
-#Plot column
+#Plotting normalized time vs yield rate with columns
 ggplot(rate_convertion) +
   geom_col(mapping = aes(x=sec_norm, y=rate_yld,colour = site))+
   facet_wrap(~ hobo_event_n, scales = "free")
 
-#Plot point
+#Plotting normalized time vs yield rate with points
 ggplot(rate_convertion) +
   geom_point(mapping = aes(x=sec_norm, y=.fitted, colour = site),
             size = 3.5)+

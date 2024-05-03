@@ -42,20 +42,13 @@ tz(ppt_intervals2$Start_dt_GMT)
 hobo_events <- readRDS(paste0(here, "/output/hobo_events.Rds"))%>%
   rename("event_yield" = "yield_mm", )
 
-hobo_events2 <- hobo_events %>%
-  mutate(site = case_when(site == "SFA_mm" ~ "SF-A",
-                          site == "SFB_mm" ~ "SF-B",
-                          site == "SFC_mm" ~ "SF-C",
-                          site == "SFD_mm" ~ "SF-D",
-                          site == "TFB_mm" ~ "TF-B",
-                          site == "TFD_mm" ~ "TF-D"))
 
 hobo_events_rec <-read_csv(paste0(here, "/output/rec_values.csv"))%>%
   mutate(across(.cols = lubridate::is.POSIXct,
-                ~ lubridate::with_tz(., tzone='EST')))
+                ~ lubridate::with_tz(., tzone='EST')))%>%
   rename("recession_yield" = "yield_mm")
 
-hobo_merged <- full_join(hobo_events2 , hobo_events_rec,
+hobo_merged <- full_join(hobo_events , hobo_events_rec,
                          by = c(  "dt","hobo_event_n", "site"))
 
 
@@ -88,8 +81,7 @@ hobo_rec_norm <- hobo_event_norm %>%
   
   
 
-
-#For hobo_n event
+#Filtering stemflow from all hobo events
   SF_event <- hobo_event_norm %>%
   filter(!str_detect(site, "TF"))%>%
   select(Ev_yld_norm,site, dt, Event, recession_n)%>%
@@ -97,10 +89,10 @@ hobo_rec_norm <- hobo_event_norm %>%
                             str_detect(site, "SF-B") ~ "YB",
                             str_detect(site, "SF-C") ~ "SM",
                             str_detect(site, "SF-D") ~ "YB"))
-  # distinct(Ev_yld_norm, .keep_all = TRUE)
+
 
   
-#For rec_n event
+#Filtering stemflow from all recession events
   SF_rec <- hobo_rec_norm %>%
     filter(!str_detect(site, "TF"))%>%
     select(Ev_yld_norm,site, dt, Event, recession_n)%>%
@@ -108,28 +100,25 @@ hobo_rec_norm <- hobo_event_norm %>%
                             str_detect(site, "SF-B") ~ "YB",
                             str_detect(site, "SF-C") ~ "SM",
                             str_detect(site, "SF-D") ~ "YB"))
-  # distinct(Ev_yld_norm, .keep_all = TRUE)
 
 
-
-
+#Renaming for merging the plots
 ppt_events_r7_2 <- ppt_events_r7%>%
   rename("dt" ="datetime_EST2")
 
 
+
 #TF
 
-#For hobo_n event
+#Filtering throughfall from all hobo events
 TF_event <- hobo_event_norm %>%
   filter(str_detect(site, "TF"))
-  # select(Ev_yld_norm,site, dt, Event)
-  # distinct(Ev_yld_norm, .keep_all = TRUE)
 
-#For hobo_n event
+
+#Filtering throughfall from all recession events
 TF_rec <- hobo_rec_norm %>%
   filter(str_detect(site, "TF"))
-  # select(Ev_yld_norm,site, dt, Event)
-  # distinct(Ev_yld_norm, .keep_all = TRUE)
+
 
 
 

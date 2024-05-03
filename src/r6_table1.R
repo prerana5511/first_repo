@@ -75,20 +75,7 @@ ppt_api_events2 <- ppt_api_events%>%
   
 
 
-#Filtering ppt events
-# ppt_events <- slice(ppt, 0)
-# 
-# for (i in 1:length(ppt_interval2$Event)) {
-#   interval <- ppt %>%
-#     filter(datetime_EST2 %within% ppt_interval2$datetime_interval_EST[i]) %>%
-#     mutate(Event = ppt_interval2$Event[i])
-# 
-# 
-#   ppt_events  <- bind_rows(ppt_events, interval)
-# }
-
-
-
+#Event summary of precipitation
 event_summary<- inner_join(ppt_api_events, ppt_interval2,
                               by = c( "Event"))%>%
   mutate(event_dur_num = as.numeric(event_dur_sec))%>%
@@ -105,3 +92,20 @@ all_events<-inner_join(ppt_api_events2, event_summary,
                        by = c( "Event"))
 
 write_csv(all_events, paste0(here, "/output/table1.csv"))
+
+
+
+
+
+
+#Filtering ppt events
+# ppt_events <- slice(ppt, 0)
+# 
+# for (i in 1:length(ppt_interval2$Event)) {
+#   interval <- ppt %>%
+#     filter(datetime_EST2 %within% ppt_interval2$datetime_interval_EST[i]) %>%
+#     mutate(Event = ppt_interval2$Event[i])
+# 
+# 
+#   ppt_events  <- bind_rows(ppt_events, interval)
+# }
