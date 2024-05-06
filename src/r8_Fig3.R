@@ -31,7 +31,7 @@ event_norm <- hobo_events%>%
 #linear models for hobo events
 nested_events <- event_norm %>%
   drop_na()%>%
-  select(-site)%>%
+  select(-site, -site2)%>%
   group_by(hobo_event_n) %>%
   nest() %>%
   mutate(nobs = map_dbl(.x = data, .f = ~nrow(.x))) %>%
@@ -45,7 +45,8 @@ nested_events <- event_norm %>%
   ungroup()%>%
   distinct(across(hobo_event_n), .keep_all = TRUE)
 
-#Save event models for r9 script
+#Save event models for r10 script
+saveRDS(nested_events, paste0(here, "/output/event_model.Rds"))
 write_csv(nested_events,
           paste0(here,"/output/event_model.csv"))
 
@@ -54,9 +55,7 @@ write_csv(nested_events,
 #RECESSION CURVES
 
 #Import recession curve values
-hobo_rec_events <- read_csv(paste0(here, "/output/rec_values.csv"))%>%
-  mutate(across(.cols = lubridate::is.POSIXct,
-                ~ lubridate::with_tz(., tzone='EST')))
+hobo_rec_events <- readRDS(paste0(here, "/output/rec_values.Rds"))
 
 
 #Normalizing rec values since hobo values normalization will give different 
@@ -93,6 +92,7 @@ nested_rec_events <- rec_norm %>%
 
 
 #Saving rec models
+saveRDS(nested_rec_events, paste0(here, "/output/rec_model.Rds"))
 write_csv(nested_rec_events,
           paste0(here,"/output/rec_model.csv"))
 
@@ -119,24 +119,9 @@ ggplot(model_rec_events) +
 
 
 #Assigning hobo events number, species as sites and converting he fitted prediction to rate
-rate_convertion <- model_rec_events %>%
-  mutate(hobo_event_n = recession_n)%>% #creating a column for plotting using facet_wrap
-  mutate(hobo_event_n = case_when(str_detect(hobo_event_n, "E1") ~ "1",
-                          str_detect(hobo_event_n, "E2") ~ "2",
-                          str_detect(hobo_event_n, "E3") ~ "3",
-                          str_detect(hobo_event_n, "E4") ~ "4",
-                          str_detect(hobo_event_n, "E5") ~ "5",
-                          str_detect(hobo_event_n, "E6") ~ "6",
-                          str_detect(hobo_event_n, "E7") ~ "7",
-                          str_detect(hobo_event_n, "E8") ~ "8",
-                          str_detect(hobo_event_n, "E9") ~ "9")) %>%
-  mutate(site = recession_n)%>% #creating sites acc. to species for plotting using facet_wrap
-  mutate(site = case_when(str_detect(site, "SFA") ~ "SM",
-                          str_detect(site, "SFB") ~ "YB",
-                          str_detect(site, "SFC") ~ "SM",
-                          str_detect(site, "SFD") ~ "YB",
-                          str_detect(site, "TFB") ~ "TF",
-                          str_detect(site, "TFD") ~ "TF")) %>%
+rate_convertion <-full_join(model_rec_events, hobo_rec_events,
+                            by = c( "recession_n")) %>%
+  distinct(across(.fitted), .keep_all = TRUE) %>%
   dplyr::group_by(recession_n) %>%
   mutate(rate_yld = .fitted - lag(.fitted)) %>%
   ungroup()
@@ -144,12 +129,12 @@ rate_convertion <- model_rec_events %>%
 
 #Plotting normalized time vs yield rate with columns
 ggplot(rate_convertion) +
-  geom_col(mapping = aes(x=sec_norm, y=rate_yld,colour = site))+
+  geom_col(mapping = aes(x=sec_norm, y=rate_yld,colour = site2))+
   facet_wrap(~ hobo_event_n, scales = "free")
 
 #Plotting normalized time vs yield rate with points
 ggplot(rate_convertion) +
-  geom_point(mapping = aes(x=sec_norm, y=.fitted, colour = site),
+  geom_point(mapping = aes(x=sec_norm, y=.fitted, colour = site2),
             size = 3.5)+
   facet_wrap(~ hobo_event_n, scales = "free") +
   theme_bw()

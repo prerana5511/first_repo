@@ -14,22 +14,17 @@ library(broom)
 
 
 #Import table containing API values
-api_table <- readr::read_csv(paste0(here, "/output/table1.csv"))%>%
+api_table <- readRDS(paste0(here, "/output/table1.Rds"))%>%
   rename("hobo_event_n" = "Event")
 
 
 #Import recession event statistics
-rec_table <- readr::read_csv(paste0(here, "/output/table2.csv"))%>%
-  mutate(centroid = as.POSIXct(centroid, format = "%m/%d/%Y %H:%M"))%>%
-  mutate(across(.cols = lubridate::is.POSIXct,
-                ~ lubridate::with_tz(., tzone='EST')))
+rec_table <- readRDS(paste0(here, "/output/table2.Rds"))
 
 
 #Import table of hobo events model coefficients
-event_table <- readr::read_csv(paste0(here, "/output/event_model.csv"))%>%
-  mutate(dt = as.POSIXct(dt, format = "%m/%d/%Y %H:%M"))%>%
-  mutate(across(.cols = lubridate::is.POSIXct,
-                ~ lubridate::with_tz(., tzone='EST')))
+event_table <- readRDS(paste0(here, "/output/event_model.Rds"))
+
 
 
 #Merging API and hobo events
@@ -42,14 +37,7 @@ merged_event_table <- full_join(api_table, event_table,
 #Merging API and rec events
 merged_rec_table <- full_join(api_table, rec_table,
                                  by = c( "hobo_event_n"))%>%
-  mutate(site = recession_n)%>%
-  mutate(site = case_when(str_detect(site, "SFA") ~ "SM",
-                          str_detect(site, "SFB") ~ "YB",
-                          str_detect(site, "SFC") ~ "SM",
-                          str_detect(site, "SFD") ~ "YB",
-                          str_detect(site, "TFB") ~ "TF",
-                          str_detect(site, "TFD") ~ "TF"))%>%
-  select(hobo_event_n, api_30d, event_intensity, m, Delta_T_duration, recession_n, site)
+  select(hobo_event_n, api_30d, event_intensity, m, Delta_T_duration, recession_n, site, site2)
 
 
 
@@ -66,9 +54,9 @@ p2 = ggplot(merged_event_table) +
 
 #Plotting DeltaT vs slope
 p3 = ggplot(merged_rec_table) +
-  geom_point(mapping = aes(Delta_T_duration, y=m,colour = site))+
-  geom_boxplot(mapping = aes(x=site, y=m))+
-  facet_wrap(~ site)
+  geom_point(mapping = aes(Delta_T_duration, y=m,colour = site2))+
+  geom_boxplot(mapping = aes(x=Delta_T_duration, y=m))+
+  facet_wrap(~ site2)
 
 
 

@@ -12,9 +12,8 @@ library(patchwork)
 library(broom)
 
 #Import ppt events
-ppt_events <-readr::read_csv(paste0(here,  "/output/ppt_events_with_API.csv"))%>%
-  mutate(.after = datetime_EST, #indicates where the new column is placed
-         datetime_EST2 = as.POSIXct(datetime_EST, format = "%m/%d/%Y %H:%M"))%>%
+ppt_events <-readRDS(paste0(here,"/output/ppt_events_with_API.Rds"))%>%
+  select(Event, datetime_EST2, W9_Precipitation_mm)%>%
   mutate(across(.cols = lubridate::is.POSIXct,
                 ~ lubridate::force_tz(., tzone='EST')))
 
@@ -23,27 +22,20 @@ tz(ppt_events$datetime_EST2)
 
 
 #Import recession values
-rec_values <- read_csv(paste0(here, "/output/rec_values.csv"))%>%
-  mutate(across(.cols = lubridate::is.POSIXct,
-                ~ lubridate::with_tz(., tzone='EST')))%>%
+rec_values <- readRDS(paste0(here, "/output/rec_values.Rds"))%>%
   rename("rec_yield" = "yield_mm")
 
 
 #Import recession intervals
-rec_intervals <- read_csv(paste0(here, "/output/curve_intervals.csv"))%>%
+rec_intervals <- readRDS(paste0(here, "/output/curve_intervals.Rds"))%>%
   select(-notes)%>%
-  mutate(across(.cols = lubridate::is.POSIXct,
-                ~ lubridate::force_tz(., tzone='EST')))%>%
   rename("hobo_event_n" = "event_n")%>%
   drop_na()
   
   
 
 #Import recession models and coefficients
-rec_model <- read_csv(paste0(here, "/output/rec_model.csv"))%>%
-  mutate(across(.cols = lubridate::is.POSIXct,
-                ~ lubridate::with_tz(., tzone='EST')))%>%
-  ungroup()%>%
+rec_model <- readRDS(paste0(here, "/output/rec_model.Rds"))%>%
   select(recession_n, hobo_event_n, site, i, m)
 
 
@@ -95,7 +87,7 @@ DeltaT <- inner_join(merged_rec , centroid,
          Delta_T_duration = dseconds(Delta_T))%>%
   distinct(recession_n, .keep_all = TRUE)%>%
   select(recession_n, hobo_event_n, site, datetime_interval_EST,
-         event_dur_sec, centroid, Delta_T, Delta_T_duration)
+         event_dur_sec, centroid, Delta_T, Delta_T_duration, site2)
 
 
 #Calculating event statistics of recession yields
@@ -150,6 +142,7 @@ table2_r8_2 <- inner_join(table2_r8, rec_model,
                          by= c("hobo_event_n","recession_n", "site"))
 
 
+saveRDS(table2_r8_2, paste0(here, "/output/table2.Rds"))
 write_csv(table2_r8_2, paste0(here, "/output/table2.csv"))
 
 

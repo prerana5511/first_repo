@@ -94,8 +94,15 @@ hobo_events2 <- hobo_events%>%
                           site == "SFD_mm" ~ "SF-D",
                           site == "TFB_mm" ~ "TF-B",
                           site == "TFD_mm" ~ "TF-D"))%>%
+  mutate(site2 = site)%>%
+  mutate(site2 = case_when(site == "SF-A" ~ "SM",
+                          site ==  "SF-B" ~ "YB",
+                          site ==  "SF-C" ~ "SM",
+                          site ==  "SF-D" ~ "YB",
+                          site ==  "TF-B" ~ "TF",
+                          site ==  "TF-D" ~ "TF"))%>%
   ungroup()%>% 
-  select(dt, site,  yield_mm, hobo_event_n)%>%
+  select(dt, site, site2, yield_mm, hobo_event_n)%>%
   drop_na()
 
 
@@ -121,6 +128,7 @@ curve_intervals2 <- curve_intervals %>%
          event_dur_sec = dseconds(datetime_interval_EST),
          event_dur_num = as.numeric(event_dur_sec))
 
+saveRDS(curve_intervals2, paste0(here, "/output/curve_intervals.Rds"))
 write_csv(curve_intervals2,
           paste0(here,"/output/curve_intervals.csv"))
 
@@ -163,6 +171,7 @@ rm(ts, int, interval)
 tz(hobo_events_new$dt)
 
 #Save recession curve values
+saveRDS(hobo_events_new, paste0(here, "/output/rec_values.Rds"))
 write_csv(hobo_events_new,
           paste0(here,"/output/rec_values.csv"))
 

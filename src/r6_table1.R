@@ -32,6 +32,7 @@ ppt_interval2 <- ppt_interval%>%
                                                      tz = "EST"),
          event_dur_sec = dseconds(datetime_interval_EST))
 
+saveRDS(ppt_interval2, paste0(here, "/output/ppt_interval_final.Rds"))
 write_csv(ppt_interval2, paste0(here, "/output/ppt_interval_final.csv"))
 
 
@@ -60,6 +61,7 @@ for (i in 1:length(ppt_interval2$Event)) {
 
 
 #saving precip events
+saveRDS(ppt_api_events, paste0(here, "/output/ppt_events_with_API.Rds"))
 write_csv(ppt_api_events, paste0(here, "/output/ppt_events_with_API.csv"))
 
 
@@ -91,6 +93,7 @@ event_summary<- inner_join(ppt_api_events, ppt_interval2,
 all_events<-inner_join(ppt_api_events2, event_summary,
                        by = c( "Event"))
 
+saveRDS(all_events, paste0(here, "/output/table1.Rds"))
 write_csv(all_events, paste0(here, "/output/table1.csv"))
 
 

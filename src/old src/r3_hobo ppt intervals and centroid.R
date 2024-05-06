@@ -57,8 +57,8 @@ hobo_events2 <- hobo_events %>%
 
 #interactive plot 
 
-all_xts <- xts(all3 %>% select(dt, W9_Precipitation_mm, SFA_mm, SFB_mm,
-                               SFC_mm, SFD_mm,TFB_mm,TFD_mm),
+all_xts <- xts(all3 %>% select(dt, W9_Precipitation_mm, 'SF-A', 'SF-B',
+                               'SF-C', 'SF-D','TF-B','TF-D'),
                order.by=all3$dt)
 
 dygraph(all_xts) %>% dyAxis("y", valueRange = c(-1, 100)) %>% 
