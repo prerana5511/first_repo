@@ -197,8 +197,8 @@ t1 <- ggplot()+
 
 
 t2 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = SF_event%>%filter(Event == 2))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = SF_event%>%filter(Event == 2))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = SF_rec %>%filter(Event == 2)) +
   scale_x_datetime(
@@ -216,8 +216,8 @@ t2 <- ggplot()+
 
 
 t3 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = TF_event%>%filter(Event == 2))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = TF_event%>%filter(Event == 2))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = TF_rec %>%filter(Event == 2)) + 
   scale_x_datetime(
@@ -259,8 +259,8 @@ t1 <- ggplot()+
 
 
 t2 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = SF_event%>%filter(Event == 3))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = SF_event%>%filter(Event == 3))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = SF_rec %>%filter(Event == 3)) +
   scale_x_datetime(
@@ -278,8 +278,8 @@ t2 <- ggplot()+
 
 
 t3 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = TF_event%>%filter(Event == 3))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = TF_event%>%filter(Event == 3))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = TF_rec %>%filter(Event == 3)) + 
   scale_x_datetime(
@@ -322,8 +322,8 @@ t1 <- ggplot()+
 
 
 t2 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = SF_event%>%filter(Event == 4))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = SF_event%>%filter(Event == 4))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = SF_rec %>%filter(Event == 4)) +
   scale_x_datetime(
@@ -341,8 +341,8 @@ t2 <- ggplot()+
 
 
 t3 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = TF_event%>%filter(Event == 4))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = TF_event%>%filter(Event == 4))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = TF_rec %>%filter(Event == 4)) + 
   scale_x_datetime(
@@ -385,8 +385,8 @@ t1 <- ggplot()+
 
 
 t2 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = SF_event%>%filter(Event == 5))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = SF_event%>%filter(Event == 5))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = SF_rec %>%filter(Event == 5)) +
   scale_x_datetime(
@@ -404,8 +404,8 @@ t2 <- ggplot()+
 
 
 t3 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = TF_event%>%filter(Event == 5))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = TF_event%>%filter(Event == 5))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = TF_rec %>%filter(Event == 5)) + 
   scale_x_datetime(
@@ -446,8 +446,8 @@ t1 <- ggplot()+
 
 
 t2 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = SF_event%>%filter(Event == 6))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = SF_event%>%filter(Event == 6))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = SF_rec %>%filter(Event == 6)) +
   scale_x_datetime(
@@ -465,8 +465,8 @@ t2 <- ggplot()+
 
 
 t3 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = TF_event%>%filter(Event == 6))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = TF_event%>%filter(Event == 6))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = TF_rec %>%filter(Event == 6)) + 
   scale_x_datetime(
@@ -508,8 +508,8 @@ t1 <- ggplot()+
 
 
 t2 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = SF_event%>%filter(Event == 7))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = SF_event%>%filter(Event == 7))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = SF_rec %>%filter(Event == 7)) +
   scale_x_datetime(
@@ -527,8 +527,8 @@ t2 <- ggplot()+
 
 
 t3 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = TF_event%>%filter(Event == 7))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = TF_event%>%filter(Event == 7))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = TF_rec %>%filter(Event == 7)) + 
   scale_x_datetime(
@@ -570,8 +570,8 @@ t1 <- ggplot()+
 
 
 t2 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = SF_event%>%filter(Event == 8))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = SF_event%>%filter(Event == 8))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = SF_rec %>%filter(Event == 8)) +
   scale_x_datetime(
@@ -589,8 +589,8 @@ t2 <- ggplot()+
 
 
 t3 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = TF_event%>%filter(Event == 8))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = TF_event%>%filter(Event == 8))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = TF_rec %>%filter(Event == 8)) + 
   scale_x_datetime(
@@ -633,8 +633,8 @@ t1 <- ggplot()+
 
 
 t2 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = SF_event%>%filter(Event == 9))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = SF_event%>%filter(Event == 9))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = SF_rec %>%filter(Event == 9)) +
   scale_x_datetime(
@@ -652,8 +652,8 @@ t2 <- ggplot()+
 
 
 t3 <- ggplot()+
-  geom_point(aes(x=dt, y = Ev_yld_norm),
-             data = TF_event%>%filter(Event == 9))+
+  # geom_point(aes(x=dt, y = Ev_yld_norm),
+  #            data = TF_event%>%filter(Event == 9))+
   geom_point(aes(x=dt, y = rec_yld_norm,group = site2, colour = site2),
              data = TF_rec %>%filter(Event == 9)) + 
   scale_x_datetime(
