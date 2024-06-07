@@ -9,7 +9,7 @@ hobo_import <- function(file) {
   #Get metadata in first row 
   id1 <- read_csv(file, skip=0, n_max = 1, col_names = FALSE) %>% pull(1)
 
-  #read in rest of data
+  #read in rest of data - test change
   dat <- read_csv(file, skip=1)
   dat2 <- dat %>% 
     select(2, 4, 6) %>% 
